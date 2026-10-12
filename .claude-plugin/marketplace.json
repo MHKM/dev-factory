@@ -1,0 +1,14 @@
+{
+  "name": "dev-factory",
+  "description": "Marketplace local de la plataforma de desarrollo agéntico factory",
+  "owner": {
+    "name": "Gonzalo Quevedo"
+  },
+  "plugins": [
+    {
+      "name": "factory",
+      "source": "./",
+      "description": "Plataforma de desarrollo agéntico"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "factory",
+  "displayName": "Dev Factory",
+  "version": "0.1.0",
+  "description": "Plataforma de desarrollo agéntico: orquestador conversacional, agentes por rol, estado en .factory/ y control de ramas por hito",
+  "author": {
+    "name": "Gonzalo Quevedo"
+  },
+  "repository": "https://github.com/MHKM/dev-factory",
+  "keywords": ["agentes", "orquestacion", "desarrollo"]
+}

@@ -1,7 +1,7 @@
 # Suite de Desarrollo Agéntico — Modelo de diseño
 
 > Documento de contexto para Claude Code. Recoge las decisiones de diseño acordadas hasta ahora.
-> **Estado: fase de diseño.** Nada de esto está implementado todavía. Las decisiones son revisables: si el proceso resulta demasiado complejo, se simplificará.
+> **Estado: esqueleto implementado (v0.1), pendiente de prueba empírica.** Las decisiones son revisables: si el proceso resulta demasiado complejo, se simplificará.
 > Este repositorio (`dev-factory`) contiene **la plataforma** (modelo, agentes, skills). Cada construcción real que se haga con ella vive en **su propio repositorio**.
 
 ---
@@ -112,8 +112,10 @@ Para la primera versión se usa un ciclo **reducido**. Mantiene los mismos punto
 ```
 Hito:           Propuesto → ✋ Aprobado → Cerrado
 Funcionalidad:  Definida → ✋ Especificada → En construcción → Validada → ✋ Aceptada
-Tarea:          Pendiente → En curso → ✋ En revisión → Hecha
+Tarea:          Pendiente → Desarrollo → ✋ En revisión → Hecha
 ```
+
+Un ✋ se representa con la situación *Esperando humano* (con su motivo) sobre el elemento, hasta que el humano decide y el orquestador aplica el cambio de fase.
 
 - **Funcionalidad**
   - *Especificada* ✋: el humano aprueba la especificación y la maqueta o las reglas de negocio. Si la rechaza, vuelve a *Definida* con comentarios.
@@ -122,7 +124,7 @@ Tarea:          Pendiente → En curso → ✋ En revisión → Hecha
   - *Aceptada* ✋: aceptada en el lote del hito.
   - Salidas laterales: **Aplazada** (a un hito posterior) y **Descartada**.
 - **Tarea**
-  - *En curso*: el desarrollador escribe los tests, **los commitea antes que la implementación** (así un cambio posterior en ellos queda visible en la PR) y luego implementa hasta que pasan.
+  - *Desarrollo*: el desarrollador escribe los tests, **los commitea antes que la implementación** (así un cambio posterior en ellos queda visible en la PR) y luego implementa hasta que pasan.
   - Si los tests no pasan tras N intentos → situación *Bloqueada*.
   - *En revisión* ✋: validador + PR; el humano aprueba la fusión a la rama release.
 
@@ -283,30 +285,41 @@ release/hito-01 ──●────●────●──────●  �
 
 ---
 
-## 13. Implementación en Claude Code (propuesta)
+## 13. Implementación en Claude Code
 
-| Pieza del diseño | En Claude Code |
+La plataforma es un **plugin de Claude Code** (`factory`) que vive en este repositorio. Detalle de uso en [`uso.md`](uso.md) y del estado en [`estado.md`](estado.md).
+
+| Pieza del diseño | Implementación |
 |---|---|
-| Orquestador | Sesión principal arrancada como agente propio, con lista de subagentes permitidos |
-| Agentes por rol | Subagentes en `.claude/agents/*.md` con prompt, herramientas, **modelo** y esfuerzo |
-| Conocimiento por stack | Skills, precargables en cada subagente |
-| Permisos y límites | Herramientas permitidas por agente y hooks (§12, Protección) |
-| Tablero | Capa de estado sobre `.factory/estado/`; más adelante GitHub vía MCP |
-| Memoria / decisiones | `CLAUDE.md` + `.factory/`; memoria persistente por agente si hace falta |
-| Distribución | Empaquetado como plugin (desde este repositorio) |
+| Orquestador | `agents/orquestador.md`, arrancado como agente principal: `claude --agent factory:orquestador`. Solo puede lanzar los cinco subagentes del plugin |
+| Descubrimiento | Skill `skills/descubrimiento/` que usa el orquestador (un subagente no puede conversar con el humano) |
+| Agentes por rol | `agents/{analista,prototipador,arquitecto,desarrollador,validador}.md`, cada uno con modelo, esfuerzo, herramientas y `maxTurns` |
+| Reglas comunes | `comun/reglas-agentes.md`, que todos los agentes leen al empezar |
+| Capa de estado | Comando `factory` (`bin/factory`, Python sin dependencias), en el PATH mientras el plugin está activo |
+| Enrutado | `factory siguiente`: calcula a partir del estado qué toca hacer y qué espera al humano |
+| Plantillas de artefactos | `plantillas/` |
+| Protección | Hook `hooks/guardia.py` (PreToolUse sobre Bash) |
+| Conocimiento por stack | Pendiente: skills por stack (§9). De momento el arquitecto fija stack, comandos y convenciones en el perfil |
 
-**Limitaciones a tener en cuenta**:
-- Los subagentes no pueden preguntar directamente al usuario. Encaja con la regla de que escalan al orquestador, pero el **agente de descubrimiento** necesita conversar con el humano → debe ser una sesión propia o un modo del orquestador, no un subagente.
-- Los subagentes no pueden lanzar otros subagentes → el orquestador tiene que ser la sesión principal.
+### Modelos por agente
 
-**Modelos**: elegibles por agente dentro de la familia Claude.
+| Agente | Modelo | Motivo |
+|---|---|---|
+| Orquestador (y descubrimiento) | opus | Conversa, prioriza y decide qué lanzar |
+| Arquitecto | opus | Decisiones estructurales y consulta previa |
+| Analista | sonnet | Redacción estructurada a partir de lo definido |
+| Prototipador | sonnet | HTML autocontenido |
+| Desarrollador | sonnet | Implementación guiada por tests e interfaces |
+| Validador | opus | Distinto del desarrollador, para garantizar independencia |
 
-### Orden de construcción propuesto (pendiente de confirmar)
-1. Esqueleto: orquestador + analista + arquitecto + desarrollador + validador, `.factory/` con backend de ficheros y ciclo reducido, modelo de ramas y hooks.
-2. Tablero en GitHub Projects (segundo backend detrás de la misma capa).
-3. Descubrimiento, roadmap por hitos y arquitectura base.
-4. Skills por stack (empezando por dos muy distintos).
-5. Vista HTML local y maqueta navegable.
+Se cambian en el frontmatter de cada agente.
+
+### Orden de construcción
+1. ✅ Esqueleto: orquestador, descubrimiento, analista, prototipador, arquitecto, desarrollador y validador; `.factory/` con backend de ficheros; ciclo reducido; modelo de ramas y guardia.
+2. Prueba empírica con un proyecto web real y ajuste del flujo.
+3. Skills por stack (empezando por web).
+4. Vista HTML local.
+5. Backend GitHub Projects detrás de la misma capa.
 
 ---
 
@@ -323,15 +336,20 @@ release/hito-01 ──●────●────●──────●  �
 | Rechazos en el lote se corrigen dentro de la release | Evita reverts sobre código ya integrado; el revert queda como excepción |
 | Protección en dos capas: hooks + protección de rama en GitHub | Los hooks no cubren todas las vías |
 | Tests antes de implementar, escritos por el desarrollador; sin agente tester | Tests definidos por el *qué*; independencia garantizada por el validador y el commit previo de los tests |
+| Máximo de 3 intentos por tarea o funcionalidad (`max_intentos` en el perfil) | Suficiente para corregir y evita bucles; al bloquearse decide el humano |
+| Presupuesto: `maxTurns` por agente | Es el límite que ofrece Claude Code; el coste en dinero no se controla todavía |
+| El enrutado lo calcula `factory siguiente`, no el criterio del orquestador | Comportamiento predecible y depurable; el orquestador se centra en hablar con el humano |
+| El stack se decide siempre con consulta previa en la arquitectura base | Es la decisión más difícil de revertir |
+| Hotfix: tarea sin hito, rama desde la rama principal y PR contra ella; después, la rama principal se lleva a la release activa | Cubre urgencias sin romper el flujo de releases |
+| Revisión de tarea (validador) y validación de funcionalidad (validador en la release), separadas | La primera protege cada PR; la segunda comprueba los criterios integrados |
 
 ---
 
 ## 15. Puntos abiertos
 
-- Confirmar el orden de construcción.
-- Valor de N (reintentos antes de bloquear) y límites de presupuesto.
-- Formato concreto de cada artefacto, de los ficheros de estado y del perfil de proyecto.
-- Qué dos stacks se usan para validar la abstracción, y proyecto piloto con el que probar el esqueleto.
-- Flujo de hotfix sobre la rama principal.
+- Skills por stack, empezando por web (después de la prueba empírica).
+- Vista HTML local y si en el futuro permite acciones (aprobar, mover, reasignar).
+- Control de coste en dinero por tarea.
+- Adelantar el lote cuando otras funcionalidades dependen de una no aceptada (hoy el lote se presenta al final del hito).
 - Si algún día hay más personas: cómo exponer el estado y compartir los artefactos.
-- Si las vistas pasarán en el futuro a permitir acciones (aprobar, mover, reasignar).
+- Proyectos existentes: fase de reconocimiento (§7), no implementada.

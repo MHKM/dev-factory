@@ -1,0 +1,853 @@
+#!/usr/bin/env python3
+"""factory: capa de estado de la plataforma de desarrollo agéntico.
+
+Backend de ficheros: cada hito, funcionalidad y tarea es un .md en
+.factory/estado/ con su estado en el frontmatter. Los agentes leen y
+cambian el estado solo a través de este comando (ver docs/estado.md).
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import re
+import shutil
+import subprocess
+import sys
+import unicodedata
+from pathlib import Path
+
+RAIZ_PLUGIN = Path(__file__).resolve().parent.parent
+PLANTILLAS = RAIZ_PLUGIN / "plantillas"
+
+FASES = {
+    "hito": ["propuesto", "aprobado", "cerrado"],
+    "func": ["definida", "especificada", "en_construccion", "validada", "aceptada",
+             "aplazada", "descartada"],
+    "tarea": ["pendiente", "desarrollo", "en_revision", "hecha", "descartada"],
+}
+TERMINALES = {"cerrado", "aceptada", "aplazada", "descartada", "hecha"}
+SITUACIONES = ["en_cola", "en_curso", "esperando_humano", "bloqueada"]
+CLASES = ["tecnica", "transversal", "correccion", "hotfix"]
+PRIORIDADES = ["imprescindible", "deseable", "mas_adelante"]
+TIPO_POR_PREFIJO = {"H": "hito", "F": "func", "T": "tarea"}
+PREFIJO_POR_TIPO = {"hito": "H", "func": "F", "tarea": "T"}
+ANCHO = {"H": 2, "F": 3, "T": 3, "D": 3}
+
+CAMPOS = {
+    "hito": ["id", "tipo", "titulo", "fase", "situacion", "motivo", "objetivo", "rama",
+             "planificado", "cierre", "pr", "creado", "actualizado"],
+    "func": ["id", "tipo", "titulo", "hito", "fase", "situacion", "motivo", "prioridad",
+             "version", "depende_de", "necesita_maqueta", "validacion", "creado",
+             "actualizado"],
+    "tarea": ["id", "tipo", "titulo", "clase", "padre", "hito", "paquete", "fase",
+              "situacion", "motivo", "agente", "intentos", "depende_de", "rama", "pr",
+              "revision", "creado", "actualizado"],
+}
+
+
+class Error(Exception):
+    pass
+
+
+# --------------------------------------------------------------------------- utilidades
+
+def ahora() -> str:
+    return dt.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
+def slug(texto: str) -> str:
+    t = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
+    t = re.sub(r"[^a-zA-Z0-9]+", "-", t).strip("-").lower()
+    return t[:40].strip("-") or "sin-titulo"
+
+
+def git(*args: str, cwd: Path, check: bool = True) -> str:
+    r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    if check and r.returncode != 0:
+        raise Error(f"git {' '.join(args)} falló: {r.stderr.strip()}")
+    return r.stdout.strip() if r.returncode == 0 else ""
+
+
+def git_ok(*args: str, cwd: Path) -> bool:
+    return subprocess.run(["git", *args], cwd=cwd, capture_output=True).returncode == 0
+
+
+def texto_arg(valor: str | None) -> str:
+    """--texto '-' lee de la entrada estándar."""
+    if valor == "-":
+        return sys.stdin.read().strip()
+    return (valor or "").strip()
+
+
+def raiz_proyecto() -> Path:
+    actual = Path.cwd().resolve()
+    for d in [actual, *actual.parents]:
+        if (d / ".factory").is_dir():
+            return d
+    raise Error("No hay .factory/ en este directorio ni en sus padres. Ejecuta `factory init`.")
+
+
+# --------------------------------------------------------------------------- documentos
+
+def _valor(txt: str):
+    txt = txt.strip()
+    if txt.startswith("[") and txt.endswith("]"):
+        dentro = txt[1:-1].strip()
+        return [x.strip() for x in dentro.split(",") if x.strip()] if dentro else []
+    if re.fullmatch(r"-?\d+", txt):
+        return int(txt)
+    if len(txt) >= 2 and txt[0] == txt[-1] and txt[0] in "\"'":
+        return txt[1:-1]
+    return txt
+
+
+def _texto(v) -> str:
+    if isinstance(v, list):
+        return "[" + ", ".join(str(x) for x in v) + "]"
+    if v is None:
+        return ""
+    return str(v).replace("\n", " ")
+
+
+def _buscar_seccion(cuerpo: str, titulo: str):
+    """Devuelve (inicio_contenido, fin) de la sección '## titulo', o None."""
+    marcas = list(re.finditer(r"^## (.+?)\s*$", cuerpo, re.M))
+    for i, m in enumerate(marcas):
+        if m.group(1) == titulo:
+            fin = marcas[i + 1].start() if i + 1 < len(marcas) else len(cuerpo)
+            return m.end(), fin
+    return None
+
+
+def anadir_a_seccion(cuerpo: str, titulo: str, texto: str) -> str:
+    pos = _buscar_seccion(cuerpo, titulo)
+    if pos:
+        ini, fin = pos
+        bloque = cuerpo[ini:fin].rstrip("\n")
+        return cuerpo[:ini] + bloque + "\n" + texto.rstrip("\n") + "\n\n" + cuerpo[fin:]
+    seccion = f"## {titulo}\n{texto.rstrip()}\n\n"
+    hist = _buscar_seccion(cuerpo, "Historial")
+    if hist:
+        inicio_titulo = cuerpo.rfind("## Historial", 0, hist[0])
+        return cuerpo[:inicio_titulo] + seccion + cuerpo[inicio_titulo:]
+    return cuerpo.rstrip("\n") + "\n\n" + seccion
+
+
+def leer_seccion(cuerpo: str, titulo: str) -> str:
+    pos = _buscar_seccion(cuerpo, titulo)
+    return cuerpo[pos[0]:pos[1]].strip() if pos else ""
+
+
+def vaciar_seccion(cuerpo: str, titulo: str) -> str:
+    pos = _buscar_seccion(cuerpo, titulo)
+    if not pos:
+        return cuerpo
+    return cuerpo[:pos[0]] + "\n\n" + cuerpo[pos[1]:]
+
+
+class Doc:
+    def __init__(self, ruta: Path):
+        self.ruta = ruta
+        texto = ruta.read_text(encoding="utf-8")
+        m = re.match(r"^---\n(.*?)\n---\n?(.*)\Z", texto, re.S)
+        if not m:
+            raise Error(f"{ruta} no tiene frontmatter")
+        self.meta: dict = {}
+        for linea in m.group(1).splitlines():
+            if not linea.strip() or linea.lstrip().startswith("#"):
+                continue
+            k, sep, v = linea.partition(":")
+            if sep:
+                self.meta[k.strip()] = _valor(v)
+        self.cuerpo = m.group(2)
+
+    def __getitem__(self, k):
+        return self.meta.get(k, "")
+
+    @property
+    def id(self) -> str:
+        return str(self.meta.get("id", ""))
+
+    @property
+    def tipo(self) -> str:
+        return str(self.meta.get("tipo", ""))
+
+    @property
+    def libre(self) -> bool:
+        return self["situacion"] not in ("en_curso", "esperando_humano", "bloqueada")
+
+    def historial(self, texto: str) -> None:
+        self.cuerpo = anadir_a_seccion(self.cuerpo, "Historial", f"- {ahora()} · {texto}")
+
+    def guardar(self) -> None:
+        self.meta["actualizado"] = ahora()
+        cabecera = "\n".join(f"{k}: {_texto(v)}" for k, v in self.meta.items())
+        self.ruta.write_text(f"---\n{cabecera}\n---\n{self.cuerpo}", encoding="utf-8")
+
+
+def ruta_de(raiz: Path, ident: str) -> Path:
+    if ident.lower() == "proyecto":
+        return raiz / ".factory" / "proyecto.md"
+    carpeta = "decisiones" if ident.upper().startswith("D") else "estado"
+    hits = sorted((raiz / ".factory" / carpeta).glob(f"{ident.upper()}-*.md"))
+    if not hits:
+        raise Error(f"No existe el elemento {ident}")
+    return hits[0]
+
+
+def cargar(raiz: Path, ident: str) -> Doc:
+    return Doc(ruta_de(raiz, ident))
+
+
+def todos(raiz: Path) -> list:
+    return [Doc(p) for p in sorted((raiz / ".factory" / "estado").glob("*.md"))]
+
+
+def siguiente_id(raiz: Path, prefijo: str) -> str:
+    carpeta = "decisiones" if prefijo == "D" else "estado"
+    nums = []
+    for p in (raiz / ".factory" / carpeta).glob(f"{prefijo}*-*.md"):
+        m = re.match(rf"^{prefijo}(\d+)-", p.name)
+        if m:
+            nums.append(int(m.group(1)))
+    return f"{prefijo}{(max(nums) + 1 if nums else 1):0{ANCHO[prefijo]}d}"
+
+
+def artefactos(raiz: Path, doc: Doc) -> dict:
+    a = raiz / ".factory" / "artefactos"
+    i = doc.id
+    if doc.tipo == "proyecto":
+        return {"vision": a / "vision.md", "roadmap": a / "roadmap.md",
+                "arquitectura": a / "arquitectura.md"}
+    if doc.tipo == "hito":
+        return {"diseno": a / i / "diseno.md", "lote": a / i / "lote.md"}
+    if doc.tipo == "func":
+        return {"spec": a / i / "spec.md", "reglas": a / i / "reglas-negocio.md",
+                "maqueta": a / i / "maqueta" / "index.html", "diseno": a / i / "diseno.md",
+                "validacion": a / i / "validacion.md"}
+    if doc.tipo == "tarea":
+        return {"revision": a / i / "revision.md"}
+    return {}
+
+
+def proyecto(raiz: Path) -> Doc:
+    return Doc(raiz / ".factory" / "proyecto.md")
+
+
+def max_intentos(raiz: Path) -> int:
+    try:
+        return int(proyecto(raiz)["max_intentos"] or 3)
+    except ValueError:
+        return 3
+
+
+# --------------------------------------------------------------------------- comandos
+
+def cmd_init(a) -> None:
+    raiz = Path.cwd().resolve()
+    fac = raiz / ".factory"
+    if (fac / "proyecto.md").exists():
+        print(f"Ya existe {fac}; no se toca nada.")
+        return
+    for sub in ("estado", "artefactos", "decisiones", "tmp"):
+        (fac / sub).mkdir(parents=True, exist_ok=True)
+
+    if not git_ok("rev-parse", "--git-dir", cwd=raiz):
+        git("init", "-b", a.rama or "master", cwd=raiz)
+    tiene_commits = git_ok("rev-parse", "--verify", "HEAD", cwd=raiz)
+    rama = a.rama or (git("branch", "--show-current", cwd=raiz, check=False) or "master")
+
+    gi = raiz / ".gitignore"
+    lineas = gi.read_text(encoding="utf-8").splitlines() if gi.exists() else []
+    if ".factory/" not in lineas:
+        lineas.append(".factory/")
+        gi.write_text("\n".join(lineas) + "\n", encoding="utf-8")
+    if not tiene_commits:
+        git("add", ".gitignore", cwd=raiz)
+        git("commit", "-m", "Initial commit", cwd=raiz)
+
+    origen = git("remote", "get-url", "origin", cwd=raiz, check=False)
+    remoto = "github" if "github.com" in origen else "ninguno"
+
+    plantilla = (PLANTILLAS / "proyecto.md").read_text(encoding="utf-8")
+    (fac / "proyecto.md").write_text(plantilla, encoding="utf-8")
+    p = proyecto(raiz)
+    p.meta.update({"nombre": a.nombre, "rama_principal": rama, "remoto": remoto,
+                   "creado": ahora()})
+    p.historial("proyecto inicializado")
+    p.guardar()
+    print(f"Inicializado {fac}\nrama principal: {rama} · remoto: {remoto}")
+    if tiene_commits:
+        print("Aviso: .gitignore modificado; commitéalo cuando convenga.")
+
+
+def cmd_nuevo(a) -> None:
+    raiz = raiz_proyecto()
+    tipo = a.tipo
+    ident = siguiente_id(raiz, PREFIJO_POR_TIPO[tipo])
+    meta = {k: "" for k in CAMPOS[tipo]}
+    meta.update({"id": ident, "tipo": tipo, "titulo": a.titulo, "fase": FASES[tipo][0],
+                 "situacion": "en_cola", "creado": ahora()})
+    depende = [x.strip().upper() for x in (a.depende or "").split(",") if x.strip()]
+
+    if tipo == "hito":
+        meta.update({"objetivo": a.objetivo or "", "planificado": "no"})
+    elif tipo == "func":
+        if not a.hito:
+            raise Error("Una funcionalidad necesita --hito")
+        cargar(raiz, a.hito)
+        meta.update({"hito": a.hito.upper(), "prioridad": a.prioridad or "imprescindible",
+                     "version": 1, "depende_de": depende, "necesita_maqueta": "",
+                     "validacion": ""})
+    else:
+        clase = a.clase or "tecnica"
+        if clase not in CLASES:
+            raise Error(f"Clase no válida: {clase} ({', '.join(CLASES)})")
+        padre = (a.padre or "-").upper()
+        hito = ""
+        if padre.startswith("F"):
+            hito = cargar(raiz, padre)["hito"]
+        elif padre.startswith("H"):
+            cargar(raiz, padre)
+            hito = padre
+        elif clase != "hotfix":
+            raise Error("Una tarea necesita --padre (F### o H##); solo un hotfix va sin padre")
+        meta.update({"clase": clase, "padre": padre, "hito": hito, "paquete": a.paquete or "",
+                     "intentos": 0, "depende_de": depende})
+
+    cuerpo = (f"\n# {ident} · {a.titulo}\n\n## Descripción\n"
+              f"{texto_arg(a.texto) or '_(sin descripción)_'}\n\n"
+              "## Preguntas pendientes\n\n## Preguntas resueltas\n\n## Historial\n")
+    ruta = raiz / ".factory" / "estado" / f"{ident}-{slug(a.titulo)}.md"
+    cabecera = "\n".join(f"{k}: {_texto(v)}" for k, v in meta.items())
+    ruta.write_text(f"---\n{cabecera}\n---\n{cuerpo}", encoding="utf-8")
+    d = Doc(ruta)
+    d.historial("creado")
+    d.guardar()
+    print(ident)
+
+
+def _aplicar_fase(d: Doc, fase: str, situacion: str | None, motivo: str | None) -> None:
+    if fase not in FASES.get(d.tipo, []):
+        raise Error(f"Fase no válida para {d.tipo}: {fase} ({', '.join(FASES[d.tipo])})")
+    anterior = d["fase"]
+    d.meta["fase"] = fase
+    if fase in TERMINALES:
+        d.meta["situacion"] = ""
+    else:
+        d.meta["situacion"] = situacion or "en_cola"
+    d.meta["motivo"] = motivo or ""
+    d.historial(f"fase {anterior} → {fase}" + (f" ({motivo})" if motivo else ""))
+
+
+def cmd_fase(a) -> None:
+    raiz = raiz_proyecto()
+    d = cargar(raiz, a.id)
+    if a.situacion and a.situacion not in SITUACIONES:
+        raise Error(f"Situación no válida: {a.situacion}")
+    _aplicar_fase(d, a.fase, a.situacion, a.motivo)
+    d.guardar()
+    print(f"{d.id}: fase {d['fase']} · {d['situacion'] or '-'}")
+
+
+def cmd_situacion(a) -> None:
+    raiz = raiz_proyecto()
+    d = cargar(raiz, a.id)
+    if a.situacion not in SITUACIONES:
+        raise Error(f"Situación no válida: {a.situacion} ({', '.join(SITUACIONES)})")
+    d.meta["situacion"] = a.situacion
+    d.meta["motivo"] = a.motivo or ""
+    d.historial(f"situación → {a.situacion}" + (f" ({a.motivo})" if a.motivo else ""))
+    d.guardar()
+    print(f"{d.id}: {d['fase'] or '-'} · {a.situacion}")
+
+
+def cmd_set(a) -> None:
+    raiz = raiz_proyecto()
+    d = cargar(raiz, a.id)
+    for par in a.pares:
+        k, sep, v = par.partition("=")
+        if not sep:
+            raise Error(f"Formato campo=valor: {par}")
+        if k in ("id", "tipo"):
+            raise Error(f"El campo {k} no se puede cambiar")
+        if k in ("fase", "situacion"):
+            raise Error(f"Usa `factory {k}` para cambiar {k}")
+        d.meta[k] = _valor(v)
+        d.historial(f"{k} = {v}")
+    d.guardar()
+    print(f"{d.id} actualizado")
+
+
+def cmd_ver(a) -> None:
+    raiz = raiz_proyecto()
+    ruta = ruta_de(raiz, a.id)
+    print(ruta.read_text(encoding="utf-8"))
+    if not a.id.upper().startswith("D"):
+        _imprimir_rutas(raiz, Doc(ruta))
+
+
+def _imprimir_rutas(raiz: Path, d: Doc) -> None:
+    arts = artefactos(raiz, d)
+    if arts:
+        print("Artefactos:")
+        for nombre, ruta in arts.items():
+            estado = "existe" if ruta.exists() else "—"
+            print(f"  {nombre:<13} {ruta.relative_to(raiz)}  [{estado}]")
+
+
+def cmd_rutas(a) -> None:
+    raiz = raiz_proyecto()
+    _imprimir_rutas(raiz, cargar(raiz, a.id))
+
+
+def _fila(d: Doc) -> str:
+    extra = []
+    if d["agente"]:
+        extra.append(d["agente"])
+    if d["motivo"]:
+        extra.append(f"«{d['motivo']}»")
+    return (f"{d.id:<6} {d['fase']:<16} {d['situacion'] or '-':<17} {d['titulo']}"
+            + (f"  ({'; '.join(extra)})" if extra else ""))
+
+
+def cmd_lista(a) -> None:
+    raiz = raiz_proyecto()
+    for d in todos(raiz):
+        if a.tipo and d.tipo != a.tipo:
+            continue
+        if a.hito and d["hito"] != a.hito.upper() and d.id != a.hito.upper():
+            continue
+        if a.fase and d["fase"] != a.fase:
+            continue
+        if a.situacion and d["situacion"] != a.situacion:
+            continue
+        print(_fila(d))
+
+
+def cmd_tablero(a) -> None:
+    raiz = raiz_proyecto()
+    p = proyecto(raiz)
+    elems = todos(raiz)
+    print(f"Proyecto: {p['nombre']} · descubrimiento {p['descubrimiento']} · "
+          f"arquitectura {p['arquitectura']} · {p['situacion'] or '-'}")
+    hitos = [d for d in elems if d.tipo == "hito"]
+    for h in hitos:
+        print(f"\n{_fila(h)}")
+        for f in (d for d in elems if d.tipo == "func" and d["hito"] == h.id):
+            print(f"  {_fila(f)}")
+            for t in (d for d in elems if d.tipo == "tarea" and d["padre"] == f.id):
+                print(f"      {_fila(t)}")
+        trans = [d for d in elems if d.tipo == "tarea" and d["padre"] == h.id]
+        if trans:
+            print("  Base técnica:")
+            for t in trans:
+                print(f"      {_fila(t)}")
+    hotfix = [d for d in elems if d.tipo == "tarea" and d["clase"] == "hotfix"]
+    if hotfix:
+        print("\nHotfix:")
+        for t in hotfix:
+            print(f"  {_fila(t)}")
+
+
+def _atencion(raiz: Path) -> list:
+    return [d for d in [proyecto(raiz), *todos(raiz)]
+            if d["situacion"] in ("esperando_humano", "bloqueada")]
+
+
+def cmd_atencion(a) -> None:
+    raiz = raiz_proyecto()
+    pendientes = _atencion(raiz)
+    if not pendientes:
+        print("Nada requiere atención humana.")
+    for d in pendientes:
+        print(f"{d.id or 'proyecto':<9} {d['situacion']:<17} {d['titulo'] or d['nombre']} "
+              f"— {d['motivo'] or 'sin motivo'}")
+        preguntas = leer_seccion(d.cuerpo, "Preguntas pendientes")
+        if preguntas:
+            print("  " + preguntas.replace("\n", "\n  "))
+
+
+def cmd_preguntar(a) -> None:
+    raiz = raiz_proyecto()
+    d = cargar(raiz, a.id)
+    texto = texto_arg(a.texto)
+    if not texto:
+        raise Error("Falta el texto de las preguntas (--texto o --texto - por stdin)")
+    d.cuerpo = anadir_a_seccion(d.cuerpo, "Preguntas pendientes",
+                                f"_{ahora()}{' · ' + a.agente if a.agente else ''}_\n\n{texto}")
+    d.meta["situacion"] = "esperando_humano"
+    d.meta["motivo"] = a.motivo or "Preguntas pendientes"
+    d.historial(f"preguntas al humano ({d.meta['motivo']})")
+    d.guardar()
+    print(f"{d.id or 'proyecto'}: esperando_humano")
+
+
+def cmd_resolver(a) -> None:
+    raiz = raiz_proyecto()
+    d = cargar(raiz, a.id)
+    pendientes = leer_seccion(d.cuerpo, "Preguntas pendientes")
+    if pendientes:
+        d.cuerpo = vaciar_seccion(d.cuerpo, "Preguntas pendientes")
+        d.cuerpo = anadir_a_seccion(d.cuerpo, "Preguntas resueltas",
+                                    f"**Resueltas en {a.decision}:**\n\n{pendientes}")
+    d.meta["situacion"] = "en_cola"
+    d.meta["motivo"] = ""
+    d.historial(f"preguntas resueltas ({a.decision})")
+    d.guardar()
+    print(f"{d.id or 'proyecto'}: en_cola")
+
+
+def cmd_decision(a) -> None:
+    raiz = raiz_proyecto()
+    texto = texto_arg(a.texto)
+    if not texto:
+        raise Error("Falta el texto de la decisión (--texto o --texto - por stdin)")
+    ident = siguiente_id(raiz, "D")
+    ruta = raiz / ".factory" / "decisiones" / f"{ident}-{slug(a.titulo)}.md"
+    ref = (a.ref or "").upper()
+    ruta.write_text(
+        f"---\nid: {ident}\ntitulo: {a.titulo}\nref: {ref}\nfecha: {ahora()}\n---\n\n"
+        f"# {ident} · {a.titulo}\n\n{texto}\n", encoding="utf-8")
+    print(ident)
+
+
+def cmd_intento(a) -> None:
+    raiz = raiz_proyecto()
+    d = cargar(raiz, a.id)
+    d.meta["intentos"] = int(d["intentos"] or 0) + 1
+    tope = max_intentos(raiz)
+    nota = f"intento {d['intentos']}/{tope}" + (f": {a.motivo}" if a.motivo else "")
+    d.historial(nota)
+    if d["intentos"] >= tope:
+        d.meta["situacion"] = "bloqueada"
+        d.meta["motivo"] = f"Superado el máximo de {tope} intentos" + (
+            f" (último: {a.motivo})" if a.motivo else "")
+    d.guardar()
+    print(f"{d.id}: {nota}" + (" → BLOQUEADA" if d["situacion"] == "bloqueada" else ""))
+
+
+def cmd_abrir_release(a) -> None:
+    raiz = raiz_proyecto()
+    h = cargar(raiz, a.id)
+    if h.tipo != "hito" or h["fase"] != "aprobado":
+        raise Error(f"{h.id} debe ser un hito en fase aprobado")
+    p = proyecto(raiz)
+    base = p["rama_principal"] or "master"
+    rama = h["rama"] or f"release/{h.id}-{slug(h['titulo'])}"
+    if p["remoto"] == "github":
+        git("fetch", "--quiet", "origin", cwd=raiz, check=False)
+        if git_ok("rev-parse", "--verify", f"origin/{base}", cwd=raiz):
+            base = f"origin/{base}"
+    if not git_ok("rev-parse", "--verify", rama, cwd=raiz):
+        git("branch", "--no-track", rama, base, cwd=raiz)
+    if p["remoto"] == "github":
+        git("push", "-u", "origin", rama, cwd=raiz)
+    h.meta["rama"] = rama
+    h.historial(f"release abierta: {rama} (desde {base})")
+    h.guardar()
+    print(rama)
+
+
+def cmd_exportar(a) -> None:
+    raiz = raiz_proyecto()
+    if not git_ok("rev-parse", "--verify", a.ref, cwd=raiz):
+        raise Error(f"No existe la referencia {a.ref}")
+    destino = raiz / ".factory" / "tmp" / slug(a.ref)
+    if destino.exists():
+        shutil.rmtree(destino)
+    destino.mkdir(parents=True)
+    archivo = subprocess.Popen(["git", "archive", a.ref], cwd=raiz, stdout=subprocess.PIPE)
+    subprocess.run(["tar", "-x", "-C", str(destino)], stdin=archivo.stdout, check=True)
+    archivo.wait()
+    print(destino)
+
+
+def _pr_fusionada(pr, raiz: Path) -> bool:
+    r = subprocess.run(["gh", "pr", "view", str(pr), "--json", "state", "-q", ".state"],
+                       cwd=raiz, capture_output=True, text=True)
+    return r.returncode == 0 and r.stdout.strip() == "MERGED"
+
+
+def _rama_integrada(rama: str, destino: str, raiz: Path, remoto: bool) -> bool:
+    if not rama or not destino:
+        return False
+    if remoto and git_ok("rev-parse", "--verify", f"origin/{destino}", cwd=raiz):
+        destino = f"origin/{destino}"
+    return git_ok("merge-base", "--is-ancestor", rama, destino, cwd=raiz)
+
+
+def cmd_sync(a) -> None:
+    raiz = raiz_proyecto()
+    p = proyecto(raiz)
+    remoto = p["remoto"] == "github"
+    principal = p["rama_principal"] or "master"
+    if remoto:
+        git("fetch", "--quiet", "--prune", "origin", cwd=raiz, check=False)
+    elems = todos(raiz)
+    releases = {d.id: d["rama"] for d in elems if d.tipo == "hito"}
+    cambios = 0
+    for d in elems:
+        if d.tipo == "tarea" and d["fase"] == "en_revision":
+            destino = principal if d["clase"] == "hotfix" else releases.get(d["hito"], "")
+            fusionada = (_pr_fusionada(d["pr"], raiz) if remoto and d["pr"]
+                         else _rama_integrada(d["rama"], destino, raiz, remoto))
+            if fusionada:
+                _aplicar_fase(d, "hecha", None, None)
+                d.guardar()
+                cambios += 1
+                print(f"{d.id}: fusionada → hecha")
+        elif d.tipo == "hito" and d["fase"] == "aprobado" and d["cierre"] == "solicitado":
+            fusionada = (_pr_fusionada(d["pr"], raiz) if remoto and d["pr"]
+                         else _rama_integrada(d["rama"], principal, raiz, remoto))
+            if fusionada:
+                d.meta["cierre"] = "fusionado"
+                _aplicar_fase(d, "cerrado", None, None)
+                d.guardar()
+                cambios += 1
+                print(f"{d.id}: release fusionada en {principal} → cerrado")
+    if not cambios:
+        print("Sin cambios.")
+
+
+def cmd_siguiente(a) -> None:
+    raiz = raiz_proyecto()
+    p = proyecto(raiz)
+    elems = todos(raiz)
+    hitos = [d for d in elems if d.tipo == "hito"]
+    funcs = [d for d in elems if d.tipo == "func"]
+    tareas = [d for d in elems if d.tipo == "tarea"]
+    por_id = {d.id: d for d in elems}
+    acciones: list = []
+
+    def accion(quien: str, ident: str, texto: str) -> None:
+        acciones.append(f"{quien:<24} {ident:<9} {texto}")
+
+    def deps_ok(d: Doc) -> bool:
+        return all(por_id.get(x) is not None and por_id[x]["fase"] in ("hecha", "validada",
+                                                                         "aceptada")
+                   for x in d["depende_de"] or [])
+
+    humano = _atencion(raiz)
+    en_curso = [d for d in [p, *elems] if d["situacion"] == "en_curso"]
+
+    if p["descubrimiento"] != "hecho":
+        if p.libre:
+            accion("orquestador", "proyecto", "descubrimiento (skill descubrimiento)")
+    elif p["arquitectura"] != "hecha":
+        if p.libre:
+            accion("lanzar arquitecto", "proyecto", "modo base: arquitectura base y perfil")
+    else:
+        activo = next((h for h in hitos if h["fase"] == "aprobado"), None)
+        if activo is None:
+            propuesto = next((h for h in hitos if h["fase"] == "propuesto"), None)
+            if propuesto and propuesto.libre:
+                accion("orquestador", propuesto.id, "pedir aprobación del hito"
+                       + (" (con visión, roadmap y arquitectura base)"
+                          if not any(h["fase"] == "cerrado" for h in hitos) else ""))
+            elif not propuesto:
+                accion("orquestador", "proyecto",
+                       "no quedan hitos: proponer revisión de roadmap (descubrimiento)")
+        else:
+            _acciones_hito(raiz, activo, funcs, tareas, deps_ok, accion)
+
+    # hotfix: fuera del flujo de hitos
+    _acciones_tareas(raiz, [t for t in tareas if t["clase"] == "hotfix"], tareas, deps_ok,
+                     accion)
+
+    if humano:
+        print("== Requiere al humano ==")
+        for d in humano:
+            print(f"  {d.id or 'proyecto':<9} {d['situacion']:<17} {d['motivo'] or '-'}")
+    if en_curso:
+        print("== En curso (un agente trabajando) ==")
+        for d in en_curso:
+            print(f"  {d.id or 'proyecto':<9} {d['agente'] or '-'}  {d['titulo'] or ''}")
+    print("== Acciones ==")
+    if acciones:
+        for x in dict.fromkeys(acciones):
+            print(f"  {x}")
+    else:
+        print("  (ninguna: esperar respuestas humanas o a que terminen los agentes en curso)")
+
+
+def _acciones_hito(raiz, h, funcs, tareas, deps_ok, accion) -> None:
+    if not h["rama"]:
+        accion("orquestador", h.id, "abrir release (factory abrir-release)")
+        return
+    if h["planificado"] != "si":
+        if h.libre:
+            accion("lanzar arquitecto", h.id, "modo hito: tareas transversales y plan")
+        return
+
+    fs = [f for f in funcs if f["hito"] == h.id]
+    for f in fs:
+        if not f.libre:
+            continue
+        arts = artefactos(raiz, f)
+        fase = f["fase"]
+        if fase == "definida":
+            if not arts["spec"].exists():
+                accion("lanzar analista", f.id, "especificar")
+            elif f["necesita_maqueta"] == "si" and not arts["maqueta"].exists():
+                accion("lanzar prototipador", f.id, "maqueta")
+            else:
+                accion("orquestador", f.id, "presentar especificación para aprobación")
+        elif fase == "especificada":
+            accion("lanzar arquitecto", f.id, "modo funcionalidad: diseño técnico y tareas")
+        elif fase == "en_construccion":
+            propias = [t for t in tareas if t["padre"] == f.id and t["fase"] != "descartada"]
+            abiertas = [t for t in propias if t["fase"] != "hecha"]
+            if f["validacion"] in ("ko", "rechazada"):
+                if not abiertas:
+                    accion("lanzar arquitecto", f.id,
+                           "modo corrección: tareas a partir de validación/rechazo")
+            elif propias and not abiertas:
+                accion("lanzar validador", f.id, "modo funcionalidad: validar en la release")
+
+    del_hito = [t for t in tareas if t["hito"] == h.id and t["clase"] != "hotfix"]
+    _acciones_tareas(raiz, del_hito, tareas, deps_ok, accion)
+
+    vivas = [f for f in fs if f["fase"] not in ("aplazada", "descartada")]
+    tareas_ok = all(t["fase"] in ("hecha", "descartada") for t in del_hito)
+    if not tareas_ok or not h.libre:
+        return
+    if vivas and all(f["fase"] in ("validada", "aceptada") for f in vivas) \
+            and any(f["fase"] == "validada" for f in vivas):
+        accion("orquestador", h.id, "preparar y presentar lote de aceptación")
+    elif all(f["fase"] == "aceptada" for f in vivas) and (vivas or del_hito) \
+            and h["cierre"] != "solicitado":
+        accion("orquestador", h.id, "cerrar hito: solicitar fusión de la release")
+
+
+def _acciones_tareas(raiz, candidatas, tareas, deps_ok, accion) -> None:
+    dev_ocupado = any(t["fase"] == "desarrollo" and t["situacion"] == "en_curso"
+                      for t in tareas)
+    orden = sorted(candidatas, key=lambda t: (t["clase"] != "hotfix",
+                                              t["clase"] != "transversal", t.id))
+    for t in orden:
+        if not t.libre:
+            continue
+        if t["fase"] in ("pendiente", "desarrollo") and not dev_ocupado and deps_ok(t):
+            grupo = [t.id]
+            if t["paquete"] and t["fase"] == "pendiente":
+                grupo = [x.id for x in orden if x["paquete"] == t["paquete"]
+                         and x["hito"] == t["hito"] and x["fase"] == "pendiente"
+                         and x.libre]
+            modo = "retomar" if t["fase"] == "desarrollo" else "implementar"
+            paquete = f" (paquete {t['paquete']})" if len(grupo) > 1 else ""
+            accion("lanzar desarrollador", ",".join(grupo), f"{modo}{paquete}")
+            dev_ocupado = True
+        elif t["fase"] == "en_revision":
+            if t["revision"] == "ok":
+                accion("orquestador", t.id, "pedir aprobación y fusión de la PR")
+            else:
+                accion("lanzar validador", t.id, "modo tarea: revisar")
+
+
+# --------------------------------------------------------------------------- CLI
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog="factory", description=__doc__.splitlines()[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("init", help="crea .factory/ en el directorio actual")
+    s.add_argument("--nombre", required=True)
+    s.add_argument("--rama", help="rama principal (por defecto la actual o master)")
+    s.set_defaults(f=cmd_init)
+
+    s = sub.add_parser("nuevo", help="crea un hito, funcionalidad o tarea; imprime su ID")
+    s.add_argument("tipo", choices=["hito", "func", "tarea"])
+    s.add_argument("--titulo", required=True)
+    s.add_argument("--texto", help="descripción; '-' para leer de stdin")
+    s.add_argument("--objetivo")
+    s.add_argument("--hito")
+    s.add_argument("--prioridad", choices=PRIORIDADES)
+    s.add_argument("--padre")
+    s.add_argument("--clase", choices=CLASES)
+    s.add_argument("--paquete")
+    s.add_argument("--depende", help="IDs separados por comas")
+    s.set_defaults(f=cmd_nuevo)
+
+    s = sub.add_parser("fase", help="cambia la fase (por defecto pasa a en_cola)")
+    s.add_argument("id")
+    s.add_argument("fase")
+    s.add_argument("--situacion")
+    s.add_argument("--motivo")
+    s.set_defaults(f=cmd_fase)
+
+    s = sub.add_parser("situacion", help="cambia la situación")
+    s.add_argument("id")
+    s.add_argument("situacion")
+    s.add_argument("--motivo")
+    s.set_defaults(f=cmd_situacion)
+
+    s = sub.add_parser("set", help="cambia campos: factory set ID campo=valor ...")
+    s.add_argument("id")
+    s.add_argument("pares", nargs="+")
+    s.set_defaults(f=cmd_set)
+
+    for nombre, fn, ayuda in (("ver", cmd_ver, "muestra un elemento y sus artefactos"),
+                              ("rutas", cmd_rutas, "rutas de los artefactos de un elemento")):
+        s = sub.add_parser(nombre, help=ayuda)
+        s.add_argument("id")
+        s.set_defaults(f=fn)
+
+    s = sub.add_parser("lista", help="lista elementos con filtros")
+    s.add_argument("--tipo", choices=["hito", "func", "tarea"])
+    s.add_argument("--hito")
+    s.add_argument("--fase")
+    s.add_argument("--situacion")
+    s.set_defaults(f=cmd_lista)
+
+    sub.add_parser("tablero", help="progreso: hitos → funcionalidades → tareas") \
+        .set_defaults(f=cmd_tablero)
+    sub.add_parser("atencion", help="lo que espera al humano o está bloqueado") \
+        .set_defaults(f=cmd_atencion)
+    sub.add_parser("siguiente", help="qué hay que hacer ahora (enrutado del orquestador)") \
+        .set_defaults(f=cmd_siguiente)
+    sub.add_parser("sync", help="detecta PRs/releases fusionadas y actualiza el estado") \
+        .set_defaults(f=cmd_sync)
+
+    s = sub.add_parser("preguntar", help="deja preguntas al humano y pasa a esperando_humano")
+    s.add_argument("id")
+    s.add_argument("--texto", required=True, help="'-' para leer de stdin")
+    s.add_argument("--motivo")
+    s.add_argument("--agente")
+    s.set_defaults(f=cmd_preguntar)
+
+    s = sub.add_parser("resolver", help="marca las preguntas como resueltas por una decisión")
+    s.add_argument("id")
+    s.add_argument("--decision", required=True)
+    s.set_defaults(f=cmd_resolver)
+
+    s = sub.add_parser("decision", help="registra una decisión; imprime su ID")
+    s.add_argument("--titulo", required=True)
+    s.add_argument("--ref")
+    s.add_argument("--texto", required=True, help="'-' para leer de stdin")
+    s.set_defaults(f=cmd_decision)
+
+    s = sub.add_parser("intento", help="suma un intento; bloquea al llegar al máximo")
+    s.add_argument("id")
+    s.add_argument("--motivo")
+    s.set_defaults(f=cmd_intento)
+
+    s = sub.add_parser("abrir-release", help="crea la rama release de un hito aprobado")
+    s.add_argument("id")
+    s.set_defaults(f=cmd_abrir_release)
+
+    s = sub.add_parser("exportar", help="exporta una rama a .factory/tmp/ para leerla o probarla")
+    s.add_argument("ref")
+    s.set_defaults(f=cmd_exportar)
+
+    a = ap.parse_args(argv)
+    try:
+        a.f(a)
+    except Error as e:
+        print(f"factory: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
