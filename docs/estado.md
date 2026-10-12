@@ -107,6 +107,7 @@ Situación: `en_cola` · `en_curso` · `esperando_humano` · `bloqueada`. Las fa
 | `factory abrir-release H##` | Crea `release/H##-…` desde la rama principal (y la sube si hay GitHub) |
 | `factory exportar REF` | Exporta una rama a `.factory/tmp/<ref>/` para leerla o probarla sin cambiar de rama |
 | `factory sync` | Detecta PRs o ramas fusionadas: tareas a `hecha` y hitos a `cerrado` |
+| `factory panel [--puerto 8765] [--abrir]` | Sirve el panel de control en `http://127.0.0.1:<puerto>/` (si está ocupado, prueba los siguientes) y guarda la URL en `.factory/panel.url` |
 
 `--texto -` lee de la entrada estándar (heredoc).
 

@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel · factory</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --texto: #1d2330; --suave: #5d6677;
+  --borde: #e2e6ec; --acento: #4f46e5; --sombra: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  --gris: #6b7280; --gris-bg: #eef0f3;
+  --azul: #1d4ed8; --azul-bg: #e3ebff;
+  --ambar: #b45309; --ambar-bg: #fdf0d9;
+  --violeta: #7c3aed; --violeta-bg: #efe7ff;
+  --verde: #15803d; --verde-bg: #dcf5e4;
+  --rojo: #b91c1c; --rojo-bg: #fde4e4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1219; --panel: #171b24; --panel-2: #1e2330; --texto: #e6e9ef; --suave: #9aa3b5;
+    --borde: #2a3040; --acento: #8b85ff; --sombra: none;
+    --gris: #a3aab8; --gris-bg: #262c39;
+    --azul: #8fb0ff; --azul-bg: #1c2a4d;
+    --ambar: #f5c46b; --ambar-bg: #3a2c12;
+    --violeta: #c4a7ff; --violeta-bg: #2e2247;
+    --verde: #77d99a; --verde-bg: #15301f;
+    --rojo: #ff9b9b; --rojo-bg: #3d1a1a;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--texto); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--acento); }
+button { font: inherit; color: inherit; }
+
+header.top { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--borde);
+  display: flex; align-items: center; gap: 16px; padding: 10px 20px; flex-wrap: wrap; }
+.marca { display: flex; flex-direction: column; min-width: 0; }
+.marca b { font-size: 16px; }
+.marca span { color: var(--suave); font-size: 12px; }
+nav.tabs { display: flex; gap: 4px; background: var(--panel-2); padding: 3px; border-radius: 9px; }
+nav.tabs button { border: 0; background: transparent; padding: 6px 14px; border-radius: 7px; cursor: pointer; color: var(--suave); }
+nav.tabs button.activa { background: var(--panel); color: var(--texto); box-shadow: var(--sombra); font-weight: 600; }
+.espacio { flex: 1; }
+.aviso { border: 0; cursor: pointer; background: var(--rojo-bg); color: var(--rojo); padding: 5px 12px; border-radius: 99px; font-weight: 600; }
+.vivo { color: var(--suave); font-size: 12px; white-space: nowrap; }
+.vivo i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--verde); margin-right: 6px; }
+.vivo.caido i { background: var(--rojo); }
+
+main { max-width: 1280px; margin: 0 auto; padding: 20px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--suave); margin: 28px 0 10px; }
+h2:first-child { margin-top: 4px; }
+.tarjeta { background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 16px; }
+.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.suave { color: var(--suave); }
+.id { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--suave); }
+.vacio { color: var(--suave); padding: 24px; text-align: center; border: 1px dashed var(--borde); border-radius: 12px; }
+
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.c-gris { color: var(--gris); background: var(--gris-bg); }
+.c-azul { color: var(--azul); background: var(--azul-bg); }
+.c-ambar { color: var(--ambar); background: var(--ambar-bg); }
+.c-violeta { color: var(--violeta); background: var(--violeta-bg); }
+.c-verde { color: var(--verde); background: var(--verde-bg); }
+.c-rojo { color: var(--rojo); background: var(--rojo-bg); }
+
+.boton { border: 1px solid var(--borde); background: var(--panel); padding: 4px 10px; border-radius: 7px; cursor: pointer; font-size: 12px; text-decoration: none; color: var(--texto); }
+.boton:hover { border-color: var(--acento); color: var(--acento); }
+.boton.principal { background: var(--acento); color: #fff; border-color: var(--acento); }
+
+/* Producto */
+.cabecera-proyecto { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+.cabecera-proyecto p { margin: 4px 0 10px; }
+.hito { margin-top: 14px; }
+.hito-cab { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.hito-cab h3 { margin: 0; font-size: 17px; }
+.barra { height: 6px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+.barra > div { height: 100%; background: var(--verde); }
+.rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; margin-top: 12px; }
+.func h4 { margin: 2px 0 8px; font-size: 15px; cursor: pointer; }
+.func h4:hover { color: var(--acento); }
+.func.espera { border-color: var(--rojo); }
+.oks { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 4px; }
+.oks li { display: flex; gap: 8px; align-items: center; color: var(--suave); }
+.oks li.si { color: var(--texto); }
+.oks .marca-ok { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; border: 1.5px solid var(--borde); }
+.oks li.si .marca-ok { background: var(--verde); border-color: var(--verde); color: #fff; }
+.oks li.ahora .marca-ok { border-color: var(--rojo); color: var(--rojo); }
+.tabla { width: 100%; border-collapse: collapse; }
+.tabla td, .tabla th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+.tabla th { font-size: 12px; color: var(--suave); font-weight: 600; }
+.tabla tr.clic { cursor: pointer; }
+.tabla tr.clic:hover td { background: var(--panel-2); }
+
+/* Construcción */
+.atencion { border-color: var(--rojo); }
+.atencion + .atencion { margin-top: 10px; }
+.pregunta { background: var(--panel-2); border-radius: 8px; padding: 4px 14px; margin-top: 10px; }
+.dos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.lista-simple { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.lista-simple li { display: flex; gap: 8px; align-items: baseline; }
+.pulso { width: 8px; height: 8px; border-radius: 50%; background: var(--ambar); flex: none; animation: pulso 1.4s infinite; position: relative; top: -1px; }
+@keyframes pulso { 50% { opacity: .3; } }
+.selector { display: flex; gap: 6px; flex-wrap: wrap; }
+.selector button { border: 1px solid var(--borde); background: var(--panel); padding: 4px 12px; border-radius: 99px; cursor: pointer; }
+.selector button.activa { border-color: var(--acento); color: var(--acento); font-weight: 600; }
+.progreso-funcs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.progreso-funcs .tarjeta { padding: 10px 12px; cursor: pointer; }
+.kanban { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+.columna { background: var(--panel-2); border-radius: 12px; padding: 10px; min-height: 120px; }
+.columna h5 { margin: 2px 4px 10px; font-size: 13px; display: flex; justify-content: space-between; }
+.tarea { background: var(--panel); border: 1px solid var(--borde); border-radius: 10px; padding: 10px; margin-bottom: 8px; cursor: pointer; box-shadow: var(--sombra); }
+.tarea:hover { border-color: var(--acento); }
+.tarea.trabajando { border-left: 3px solid var(--ambar); }
+.tarea.espera { border-left: 3px solid var(--rojo); }
+.tarea.bloq { border-left: 3px solid var(--rojo); background: var(--rojo-bg); }
+.tarea .titulo { font-weight: 600; margin: 2px 0 6px; }
+.tarea .meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--suave); align-items: center; }
+
+/* Lateral */
+.velo { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 9; }
+aside.lateral { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--panel); z-index: 10;
+  border-left: 1px solid var(--borde); display: flex; flex-direction: column; box-shadow: -8px 0 24px rgba(0,0,0,.12); }
+.lat-cab { padding: 14px 18px; border-bottom: 1px solid var(--borde); display: flex; gap: 10px; align-items: flex-start; }
+.lat-cab h3 { margin: 0; font-size: 17px; flex: 1; }
+.lat-tabs { display: flex; gap: 6px; padding: 10px 18px; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
+.lat-tabs .activa { border-color: var(--acento); color: var(--acento); font-weight: 600; }
+.lat-cuerpo { padding: 6px 22px 30px; overflow-y: auto; flex: 1; }
+.cerrar { border: 0; background: transparent; font-size: 22px; cursor: pointer; color: var(--suave); line-height: 1; }
+
+.md h1 { font-size: 20px; } .md h2 { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--texto); margin: 22px 0 8px; }
+.md h3 { font-size: 14px; }
+.md table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+.md th, .md td { border: 1px solid var(--borde); padding: 6px 8px; text-align: left; vertical-align: top; }
+.md th { background: var(--panel-2); }
+.md code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+.md pre { background: var(--panel-2); padding: 12px; border-radius: 8px; overflow-x: auto; }
+.md pre code { background: none; padding: 0; }
+.md blockquote { margin: 10px 0; padding: 4px 14px; border-left: 3px solid var(--borde); color: var(--suave); }
+pre.plano { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+
+@media (max-width: 760px) {
+  main { padding: 16px; }
+  header.top { padding: 10px 16px; }
+  .cabecera-proyecto, .dos { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="marca"><b id="nombre">factory</b><span id="subtitulo">Panel de control</span></div>
+  <nav class="tabs">
+    <button data-vista="producto">Producto</button>
+    <button data-vista="construccion">Construcción</button>
+  </nav>
+  <div class="espacio"></div>
+  <span id="hueco-aviso"></span>
+  <span class="vivo" id="vivo"><i></i>conectando…</span>
+</header>
+<main id="vista"></main>
+<div id="hueco-lateral"></div>
+
+<script>
+const FASE_FUNC = {
+  definida: ["En definición", "gris"], especificada: ["Especificación aprobada", "azul"],
+  en_construccion: ["En construcción", "ambar"], validada: ["Validada · falta tu OK", "violeta"],
+  aceptada: ["Aceptada", "verde"], aplazada: ["Aplazada", "gris"], descartada: ["Descartada", "gris"]
+};
+const FASE_HITO = { propuesto: ["Propuesto", "gris"], aprobado: ["En marcha", "ambar"], cerrado: ["Cerrado", "verde"] };
+const SIT = {
+  en_cola: ["En cola", "gris"], en_curso: ["Trabajando", "ambar"],
+  esperando_humano: ["Te espera", "rojo"], bloqueada: ["Bloqueada", "rojo"]
+};
+const COLUMNAS = [["pendiente", "Pendiente"], ["desarrollo", "Desarrollo"], ["en_revision", "En revisión"], ["hecha", "Hecha"]];
+const NOMBRE_ART = {
+  vision: "Visión", roadmap: "Roadmap", arquitectura: "Arquitectura", spec: "Especificación",
+  reglas: "Reglas de negocio", maqueta: "Maqueta ↗", diseno: "Diseño técnico", validacion: "Validación",
+  revision: "Revisión", lote: "Lote"
+};
+const ORDEN_FUNC = ["definida", "especificada", "en_construccion", "validada", "aceptada"];
+
+let datos = null, firma = "", hitoSel = null, lateral = null;
+let vista = ["producto", "construccion"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "producto";
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const md = t => window.marked ? marked.parse(t || "") : `<pre class="plano">${esc(t)}</pre>`;
+const chip = ([t, c]) => `<span class="chip c-${c}">${esc(t)}</span>`;
+const elems = tipo => datos.elementos.filter(e => e.meta.tipo === tipo);
+const porId = id => id === "proyecto" ? datos.proyecto : datos.elementos.find(e => e.meta.id === id);
+const seccion = (cuerpo, titulo) => {
+  const m = (cuerpo || "").match(new RegExp(`^## ${titulo}\\s*$([\\s\\S]*?)(?=^## |$(?![\\s\\S]))`, "m"));
+  return m ? m[1].trim() : "";
+};
+
+async function cargar() {
+  try {
+    const r = await fetch("/api/estado", { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    const txt = await r.text();
+    $("#vivo").className = "vivo";
+    if (txt !== firma) {
+      firma = txt;
+      datos = JSON.parse(txt);
+      pintar();
+    }
+    $("#vivo").innerHTML = `<i></i>en vivo · ${esc(datos.generado.slice(11))}`;
+  } catch (e) {
+    $("#vivo").className = "vivo caido";
+    $("#vivo").innerHTML = "<i></i>sin conexión con factory panel";
+  }
+}
+
+function pintar() {
+  const p = datos.proyecto.meta;
+  document.title = `${p.nombre || "Proyecto"} · factory`;
+  $("#nombre").textContent = p.nombre || "Proyecto";
+  $("#subtitulo").textContent = p.descripcion || "Panel de control";
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("activa", b.dataset.vista === vista));
+  const pend = [datos.proyecto, ...datos.elementos].filter(e => ["esperando_humano", "bloqueada"].includes(e.meta.situacion));
+  $("#hueco-aviso").innerHTML = pend.length
+    ? `<button class="aviso" onclick="irA('construccion')">${pend.length} ${pend.length === 1 ? "cosa te espera" : "cosas te esperan"}</button>` : "";
+  $("#vista").innerHTML = vista === "producto" ? vistaProducto() : vistaConstruccion(pend);
+  if (lateral) abrirLateral(lateral.id, lateral.pestana, true);
+}
+
+function irA(v) { vista = v; location.hash = v; pintar(); }
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => irA(b.dataset.vista));
+
+function botonesArt(e, excluir = []) {
+  return Object.keys(e.artefactos || {}).filter(k => !excluir.includes(k)).map(k =>
+    k === "maqueta"
+      ? `<a class="boton" href="/artefacto/${esc(e.artefactos[k])}" target="_blank">${NOMBRE_ART[k]}</a>`
+      : `<button class="boton" onclick="event.stopPropagation(); abrirLateral('${esc(e.meta.id)}', '${k}')">${NOMBRE_ART[k] || k}</button>`
+  ).join("");
+}
+
+/* ------------------------------------------------------------------ Producto */
+function vistaProducto() {
+  const pr = datos.proyecto, p = pr.meta;
+  const stack = seccion(pr.cuerpo, "Stack");
+  const pasos = [
+    ["Descubrimiento", p.descubrimiento === "hecho"],
+    ["Arquitectura base", p.arquitectura === "hecha"],
+  ];
+  let h = `<h2>Producto</h2>
+  <div class="tarjeta cabecera-proyecto">
+    <div>
+      <div class="fila">${pasos.map(([t, ok]) => chip([`${ok ? "✓" : "○"} ${t}`, ok ? "verde" : "gris"])).join("")}
+        ${chip([p.interfaz ? `Interfaz: ${p.interfaz}` : "Interfaz sin definir", "gris"])}
+        ${chip([p.remoto === "github" ? "GitHub" : "Solo local", "gris"])}</div>
+      ${stack && !stack.startsWith("_") ? `<div class="md">${md(stack)}</div>` : `<p class="suave">El stack lo definirá el arquitecto en la arquitectura base.</p>`}
+    </div>
+    <div class="fila">${botonesArt(pr)}<button class="boton" onclick="abrirLateral('proyecto')">Perfil</button></div>
+  </div>`;
+
+  const hitos = elems("hito");
+  if (!hitos.length) {
+    h += `<h2>Hitos</h2><div class="vacio">Aún no hay hitos. Saldrán del descubrimiento.</div>`;
+  }
+  for (const hi of hitos) {
+    const fs = elems("func").filter(f => f.meta.hito === hi.meta.id);
+    const vivas = fs.filter(f => !["aplazada", "descartada"].includes(f.meta.fase));
+    const ok = vivas.filter(f => f.meta.fase === "aceptada").length;
+    h += `<div class="hito">
+      <h2>${esc(hi.meta.id)} · hito</h2>
+      <div class="hito-cab"><h3>${esc(hi.meta.titulo)}</h3>${chip(FASE_HITO[hi.meta.fase] || [hi.meta.fase, "gris"])}
+        ${hi.meta.situacion === "esperando_humano" ? chip(["Te espera: " + hi.meta.motivo, "rojo"]) : ""}
+        <span class="espacio"></span>${botonesArt(hi)}
+        <button class="boton" onclick="abrirLateral('${hi.meta.id}')">Ficha</button></div>
+      <div class="suave">Al terminar se puede: ${esc(hi.meta.objetivo || "—")}</div>
+      <div class="fila" style="margin-top:8px"><div class="barra" style="flex:1"><div style="width:${vivas.length ? ok / vivas.length * 100 : 0}%"></div></div>
+        <span class="suave">${ok}/${vivas.length} aceptadas</span></div>
+      <div class="rejilla">${fs.map(tarjetaFunc).join("") || `<div class="vacio">Sin funcionalidades.</div>`}</div>
+    </div>`;
+  }
+
+  h += `<h2>Decisiones</h2>`;
+  h += datos.decisiones.length ? `<div class="tarjeta" style="padding:0"><table class="tabla">
+    <tr><th>ID</th><th>Decisión</th><th>Sobre</th><th>Fecha</th></tr>
+    ${[...datos.decisiones].reverse().map(d => `<tr class="clic" onclick="abrirDecision('${esc(d.meta.id)}')">
+      <td class="id">${esc(d.meta.id)}</td><td>${esc(d.meta.titulo)}</td><td class="id">${esc(d.meta.ref || "—")}</td><td class="suave">${esc(d.meta.fecha)}</td></tr>`).join("")}
+  </table></div>` : `<div class="vacio">Todavía no hay decisiones registradas.</div>`;
+  return h;
+}
+
+function tarjetaFunc(f) {
+  const m = f.meta, i = ORDEN_FUNC.indexOf(m.fase);
+  const espera = m.situacion === "esperando_humano";
+  const oks = [
+    ["Especificación aprobada", i >= 1, m.fase === "definida" && espera],
+    ["Construida y validada", i >= 3, false],
+    ["Aceptada por ti", i >= 4, m.fase === "validada" && espera],
+  ];
+  return `<div class="tarjeta func ${espera ? "espera" : ""}">
+    <div class="fila"><span class="id">${esc(m.id)}</span>${chip(FASE_FUNC[m.fase] || [m.fase, "gris"])}
+      ${m.prioridad && m.prioridad !== "imprescindible" ? chip([m.prioridad.replace("_", " "), "gris"]) : ""}</div>
+    <h4 onclick="abrirLateral('${esc(m.id)}')">${esc(m.titulo)}</h4>
+    ${espera ? `<div>${chip(["Te espera: " + (m.motivo || ""), "rojo"])}</div>` : ""}
+    <ul class="oks">${oks.map(([t, si, ahora]) => `<li class="${si ? "si" : ""} ${ahora ? "ahora" : ""}"><span class="marca-ok">${si ? "✓" : ahora ? "!" : ""}</span>${t}</li>`).join("")}</ul>
+    <div class="fila">${f.criterios != null ? `<span class="suave">${f.criterios} criterios de aceptación</span>` : `<span class="suave">Sin especificar todavía</span>`}</div>
+    <div class="fila" style="margin-top:10px">${botonesArt(f)}</div>
+  </div>`;
+}
+
+/* ------------------------------------------------------------------ Construcción */
+function vistaConstruccion(pend) {
+  let h = `<h2>Te espera</h2>`;
+  h += pend.length ? pend.map(e => {
+    const m = e.meta, preg = seccion(e.cuerpo, "Preguntas pendientes");
+    return `<div class="tarjeta atencion">
+      <div class="fila"><span class="id">${esc(m.id)}</span>${chip(SIT[m.situacion])}<b>${esc(m.titulo || m.nombre)}</b>
+        <span class="espacio"></span>${botonesArt(e)}<button class="boton" onclick="abrirLateral('${esc(m.id)}')">Ficha</button></div>
+      <div style="margin-top:6px">${esc(m.motivo || "")}</div>
+      ${preg ? `<div class="pregunta md">${md(preg)}</div>` : ""}
+      <div class="suave" style="margin-top:8px">Responde en la terminal, al orquestador.</div>
+    </div>`;
+  }).join("") : `<div class="vacio">Nada pendiente de ti.</div>`;
+
+  const curso = [datos.proyecto, ...datos.elementos].filter(e => e.meta.situacion === "en_curso");
+  h += `<div class="dos"><div><h2>Trabajando ahora</h2><div class="tarjeta">${curso.length
+    ? `<ul class="lista-simple">${curso.map(e => `<li><span class="pulso"></span><span class="id">${esc(e.meta.id)}</span>
+        <span>${esc(e.meta.titulo || "Proyecto")}${e.meta.agente ? ` <span class="suave">· ${esc(e.meta.agente)}</span>` : ""}</span></li>`).join("")}</ul>`
+    : `<span class="suave">Ningún agente trabajando.</span>`}</div></div>
+    <div><h2>Próximos pasos</h2><div class="tarjeta">${datos.acciones.length
+    ? `<ul class="lista-simple">${datos.acciones.map(a => `<li><span class="id">${esc(a.id)}</span>
+        <span>${esc(a.texto)} <span class="suave">· ${esc(a.quien.replace("lanzar ", ""))}</span></span></li>`).join("")}</ul>`
+    : `<span class="suave">Nada más hasta que respondas o terminen los agentes.</span>`}</div></div></div>`;
+
+  const hitos = elems("hito");
+  const activo = hitos.find(x => x.meta.fase === "aprobado") || hitos[hitos.length - 1];
+  if (!hitoSel || !porId(hitoSel)) hitoSel = activo ? activo.meta.id : null;
+  const hotfix = elems("tarea").filter(t => t.meta.clase === "hotfix");
+  if (!hitoSel && !hotfix.length) return h + `<h2>Tareas</h2><div class="vacio">Aún no hay hitos ni tareas.</div>`;
+
+  if (hitoSel) {
+    const hi = porId(hitoSel);
+    h += `<h2>Hito</h2><div class="fila">
+      <div class="selector">${hitos.map(x => `<button class="${x.meta.id === hitoSel ? "activa" : ""}" onclick="hitoSel='${x.meta.id}'; pintar()">${esc(x.meta.id)} · ${esc(x.meta.titulo)}</button>`).join("")}</div>
+      <span class="espacio"></span>${chip(FASE_HITO[hi.meta.fase] || [hi.meta.fase, "gris"])}
+      ${hi.meta.rama ? `<span class="id">${esc(hi.meta.rama)}</span>` : ""}</div>`;
+
+    const tareas = elems("tarea").filter(t => t.meta.hito === hitoSel && t.meta.clase !== "hotfix");
+    const fs = elems("func").filter(f => f.meta.hito === hitoSel);
+    h += `<h2>Funcionalidades</h2>`;
+    h += fs.length ? `<div class="progreso-funcs">${fs.map(f => {
+      const ts = tareas.filter(t => t.meta.padre === f.meta.id && t.meta.fase !== "descartada");
+      const hechas = ts.filter(t => t.meta.fase === "hecha").length;
+      return `<div class="tarjeta" onclick="abrirLateral('${esc(f.meta.id)}')">
+        <div class="fila"><span class="id">${esc(f.meta.id)}</span>${chip(FASE_FUNC[f.meta.fase] || [f.meta.fase, "gris"])}</div>
+        <div style="margin:4px 0 6px;font-weight:600">${esc(f.meta.titulo)}</div>
+        <div class="fila"><div class="barra" style="flex:1"><div style="width:${ts.length ? hechas / ts.length * 100 : 0}%"></div></div>
+        <span class="suave">${ts.length ? `${hechas}/${ts.length} tareas` : "sin tareas"}</span></div></div>`;
+    }).join("")}</div>` : `<div class="vacio">Sin funcionalidades en este hito.</div>`;
+
+    h += `<h2>Tareas</h2>` + kanban(tareas);
+  }
+  if (hotfix.length) h += `<h2>Hotfix</h2>` + kanban(hotfix);
+  return h;
+}
+
+function kanban(tareas) {
+  const vivas = tareas.filter(t => t.meta.fase !== "descartada");
+  return `<div class="kanban">${COLUMNAS.map(([fase, titulo]) => {
+    const ts = vivas.filter(t => t.meta.fase === fase);
+    return `<div class="columna"><h5>${titulo}<span class="suave">${ts.length}</span></h5>${ts.map(tarjetaTarea).join("")}</div>`;
+  }).join("")}</div>`;
+}
+
+function tarjetaTarea(t) {
+  const m = t.meta;
+  const clase = m.situacion === "en_curso" ? "trabajando" : m.situacion === "esperando_humano" ? "espera" : m.situacion === "bloqueada" ? "bloq" : "";
+  const pr = m.pr ? (datos.url_prs ? `<a href="${esc(datos.url_prs + m.pr)}" target="_blank" onclick="event.stopPropagation()">PR #${esc(m.pr)}</a>` : `PR #${esc(m.pr)}`) : "";
+  const rev = m.revision === "ok" ? chip(["Revisión OK", "verde"]) : m.revision === "ko" ? chip(["Revisión KO", "rojo"]) : "";
+  return `<div class="tarea ${clase}" onclick="abrirLateral('${esc(m.id)}')">
+    <div class="fila"><span class="id">${esc(m.id)}</span>
+      ${m.clase && m.clase !== "tecnica" ? chip([m.clase, m.clase === "correccion" || m.clase === "hotfix" ? "ambar" : "azul"]) : ""}
+      ${m.situacion && m.situacion !== "en_cola" ? chip(SIT[m.situacion] || [m.situacion, "gris"]) : ""}</div>
+    <div class="titulo">${esc(m.titulo)}</div>
+    ${m.motivo ? `<div class="suave" style="font-size:12px;margin-bottom:6px">${esc(m.motivo)}</div>` : ""}
+    <div class="meta">
+      ${m.padre && m.padre !== "-" ? `<span class="id">${esc(m.padre)}</span>` : ""}
+      ${m.paquete ? `<span>${esc(m.paquete)}</span>` : ""}
+      ${m.agente ? `<span>· ${esc(m.agente)}</span>` : ""}
+      ${Number(m.intentos) > 0 ? chip([`intento ${m.intentos}/${datos.max_intentos}`, Number(m.intentos) >= datos.max_intentos ? "rojo" : "gris"]) : ""}
+      ${rev} ${pr}
+      ${(m.depende_de || []).length && m.fase === "pendiente" ? `<span>depende de ${esc(m.depende_de.join(", "))}</span>` : ""}
+    </div>
+  </div>`;
+}
+
+/* ------------------------------------------------------------------ Lateral */
+async function abrirLateral(id, pestana = "ficha", refresco = false) {
+  const e = porId(id);
+  if (!e) { cerrarLateral(); return; }
+  if (pestana === "maqueta") { window.open(`/artefacto/${e.artefactos.maqueta}`, "_blank"); return; }
+  lateral = { id, pestana };
+  const m = e.meta;
+  const tabs = [["ficha", "Ficha"], ...Object.keys(e.artefactos || {}).map(k => [k, NOMBRE_ART[k] || k])];
+  let cuerpo;
+  if (pestana === "ficha") {
+    cuerpo = fichaElemento(e);
+  } else {
+    try {
+      const r = await fetch(`/artefacto/${e.artefactos[pestana]}`, { cache: "no-store" });
+      cuerpo = `<div class="md">${md(await r.text())}</div>`;
+    } catch (err) { cuerpo = `<div class="vacio">No se pudo cargar.</div>`; }
+  }
+  if (refresco && $(".lat-cuerpo")) {
+    const scroll = $(".lat-cuerpo").scrollTop;
+    $("#hueco-lateral").innerHTML = htmlLateral(m, tabs, pestana, cuerpo);
+    $(".lat-cuerpo").scrollTop = scroll;
+  } else {
+    $("#hueco-lateral").innerHTML = htmlLateral(m, tabs, pestana, cuerpo);
+  }
+}
+
+function htmlLateral(m, tabs, pestana, cuerpo) {
+  const id = m.id;
+  return `<div class="velo" onclick="cerrarLateral()"></div>
+  <aside class="lateral">
+    <div class="lat-cab"><div style="flex:1"><div class="fila"><span class="id">${esc(id)}</span>
+      ${m.fase ? chip((m.tipo === "func" ? FASE_FUNC : m.tipo === "hito" ? FASE_HITO : {})[m.fase] || [m.fase, "gris"]) : ""}
+      ${m.situacion ? chip(SIT[m.situacion] || [m.situacion, "gris"]) : ""}</div>
+      <h3>${esc(m.titulo || m.nombre || id)}</h3></div>
+      <button class="cerrar" onclick="cerrarLateral()" aria-label="Cerrar">×</button></div>
+    <div class="lat-tabs">${tabs.map(([k, t]) => `<button class="boton ${k === pestana ? "activa" : ""}" onclick="abrirLateral('${esc(id)}', '${k}')">${t}</button>`).join("")}</div>
+    <div class="lat-cuerpo">${cuerpo}</div>
+  </aside>`;
+}
+
+function fichaElemento(e) {
+  const m = e.meta;
+  const campos = Object.entries(m).filter(([k, v]) => !["id", "tipo", "titulo", "nombre"].includes(k) && v !== "" && !(Array.isArray(v) && !v.length));
+  let h = `<table class="tabla" style="margin-top:12px">${campos.map(([k, v]) => `<tr><th style="width:150px">${esc(k)}</th><td>${
+    k === "pr" && datos.url_prs ? `<a href="${esc(datos.url_prs + v)}" target="_blank">#${esc(v)}</a>` : esc(Array.isArray(v) ? v.join(", ") : v)}</td></tr>`).join("")}</table>`;
+  return h + `<div class="md">${md(e.cuerpo.replace(/^\s*# .*\n/, ""))}</div>`;
+}
+
+function abrirDecision(id) {
+  const d = datos.decisiones.find(x => x.meta.id === id);
+  lateral = null;
+  $("#hueco-lateral").innerHTML = htmlLateral({ id, titulo: d.meta.titulo }, [], "", `<p class="suave">Sobre ${esc(d.meta.ref || "—")} · ${esc(d.meta.fecha)}</p><div class="md">${md(d.cuerpo.replace(/^\s*# .*\n/, ""))}</div>`);
+}
+
+function cerrarLateral() { lateral = null; $("#hueco-lateral").innerHTML = ""; }
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") cerrarLateral(); });
+
+cargar();
+setInterval(cargar, 2500);
+</script>
+</body>
+</html>

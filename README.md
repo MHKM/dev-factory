@@ -18,6 +18,7 @@ claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orquestador
 | `skills/descubrimiento/` | Modo conversacional de descubrimiento del orquestador |
 | `comun/reglas-agentes.md` | Reglas compartidas por todos los agentes |
 | `plantillas/` | Plantillas de artefactos |
-| `bin/factory` | Capa de estado (CLI, Python sin dependencias) |
+| `bin/factory` | Capa de estado (CLI, Python sin dependencias) y servidor del panel |
+| `panel/index.html` | Panel de control: vistas Producto y Construcción |
 | `hooks/` | Guardia de ramas |
 | `.claude-plugin/` | Manifiesto del plugin y marketplace local |

@@ -9,12 +9,17 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
+import mimetypes
 import re
 import shutil
 import subprocess
 import sys
 import unicodedata
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 RAIZ_PLUGIN = Path(__file__).resolve().parent.parent
 PLANTILLAS = RAIZ_PLUGIN / "plantillas"
@@ -505,7 +510,8 @@ def cmd_decision(a) -> None:
         raise Error("Falta el texto de la decisión (--texto o --texto - por stdin)")
     ident = siguiente_id(raiz, "D")
     ruta = raiz / ".factory" / "decisiones" / f"{ident}-{slug(a.titulo)}.md"
-    ref = (a.ref or "").upper()
+    ref = a.ref or ""
+    ref = "proyecto" if ref.lower() == "proyecto" else ref.upper()
     ruta.write_text(
         f"---\nid: {ident}\ntitulo: {a.titulo}\nref: {ref}\nfecha: {ahora()}\n---\n\n"
         f"# {ident} · {a.titulo}\n\n{texto}\n", encoding="utf-8")
@@ -610,8 +616,8 @@ def cmd_sync(a) -> None:
         print("Sin cambios.")
 
 
-def cmd_siguiente(a) -> None:
-    raiz = raiz_proyecto()
+def calcular_siguiente(raiz: Path):
+    """Devuelve (humano, en_curso, acciones); acciones = [(quien, id, texto)]."""
     p = proyecto(raiz)
     elems = todos(raiz)
     hitos = [d for d in elems if d.tipo == "hito"]
@@ -621,7 +627,8 @@ def cmd_siguiente(a) -> None:
     acciones: list = []
 
     def accion(quien: str, ident: str, texto: str) -> None:
-        acciones.append(f"{quien:<24} {ident:<9} {texto}")
+        if (quien, ident, texto) not in acciones:
+            acciones.append((quien, ident, texto))
 
     def deps_ok(d: Doc) -> bool:
         return all(por_id.get(x) is not None and por_id[x]["fase"] in ("hecha", "validada",
@@ -655,6 +662,11 @@ def cmd_siguiente(a) -> None:
     _acciones_tareas(raiz, [t for t in tareas if t["clase"] == "hotfix"], tareas, deps_ok,
                      accion)
 
+    return humano, en_curso, acciones
+
+
+def cmd_siguiente(a) -> None:
+    humano, en_curso, acciones = calcular_siguiente(raiz_proyecto())
     if humano:
         print("== Requiere al humano ==")
         for d in humano:
@@ -665,8 +677,8 @@ def cmd_siguiente(a) -> None:
             print(f"  {d.id or 'proyecto':<9} {d['agente'] or '-'}  {d['titulo'] or ''}")
     print("== Acciones ==")
     if acciones:
-        for x in dict.fromkeys(acciones):
-            print(f"  {x}")
+        for quien, ident, texto in acciones:
+            print(f"  {quien:<24} {ident:<9} {texto}")
     else:
         print("  (ninguna: esperar respuestas humanas o a que terminen los agentes en curso)")
 
@@ -743,6 +755,112 @@ def _acciones_tareas(raiz, candidatas, tareas, deps_ok, accion) -> None:
                 accion("orquestador", t.id, "pedir aprobación y fusión de la PR")
             else:
                 accion("lanzar validador", t.id, "modo tarea: revisar")
+
+
+# --------------------------------------------------------------------------- panel
+
+def _url_prs(raiz: Path) -> str:
+    origen = git("remote", "get-url", "origin", cwd=raiz, check=False)
+    m = re.search(r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?$", origen)
+    return f"https://github.com/{m.group(1)}/pull/" if m else ""
+
+
+def estado_json(raiz: Path) -> dict:
+    base_art = raiz / ".factory" / "artefactos"
+
+    def serializar(d: Doc) -> dict:
+        arts = {k: str(v.relative_to(base_art)) for k, v in artefactos(raiz, d).items()
+                if v.exists()}
+        dato = {"meta": d.meta, "cuerpo": d.cuerpo, "artefactos": arts}
+        if d.tipo == "func" and "spec" in arts:
+            texto = (base_art / arts["spec"]).read_text(encoding="utf-8")
+            dato["criterios"] = len(set(re.findall(r"CA-F\d+-\d+", texto)))
+        return dato
+
+    decisiones = []
+    for ruta in sorted((raiz / ".factory" / "decisiones").glob("D*.md")):
+        try:
+            d = Doc(ruta)
+            decisiones.append({"meta": d.meta, "cuerpo": d.cuerpo})
+        except Error:
+            pass
+    humano, en_curso, acciones = calcular_siguiente(raiz)
+    return {
+        "proyecto": serializar(proyecto(raiz)),
+        "elementos": [serializar(d) for d in todos(raiz)],
+        "decisiones": decisiones,
+        "acciones": [{"quien": q, "id": i, "texto": t} for q, i, t in acciones],
+        "max_intentos": max_intentos(raiz),
+        "url_prs": _url_prs(raiz),
+        "generado": ahora(),
+    }
+
+
+def _manejador(raiz: Path):
+    base_art = (raiz / ".factory" / "artefactos").resolve()
+
+    class Manejador(BaseHTTPRequestHandler):
+        def log_message(self, *args):  # silencio
+            pass
+
+        def _enviar(self, codigo: int, cuerpo: bytes, tipo: str) -> None:
+            self.send_response(codigo)
+            self.send_header("Content-Type", tipo)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(cuerpo)))
+            self.end_headers()
+            self.wfile.write(cuerpo)
+
+        def do_GET(self):
+            ruta = unquote(urlparse(self.path).path)
+            try:
+                if ruta in ("/", "/index.html"):
+                    html = (RAIZ_PLUGIN / "panel" / "index.html").read_bytes()
+                    self._enviar(200, html, "text/html; charset=utf-8")
+                elif ruta == "/api/estado":
+                    datos = json.dumps(estado_json(raiz), ensure_ascii=False, default=str)
+                    self._enviar(200, datos.encode("utf-8"), "application/json; charset=utf-8")
+                elif ruta.startswith("/artefacto/"):
+                    destino = (base_art / ruta[len("/artefacto/"):]).resolve()
+                    if base_art not in destino.parents or not destino.is_file():
+                        self._enviar(404, b"No encontrado", "text/plain; charset=utf-8")
+                        return
+                    tipo = mimetypes.guess_type(destino.name)[0] or "application/octet-stream"
+                    if destino.suffix == ".md":
+                        tipo = "text/plain"
+                    if tipo.startswith("text/"):
+                        tipo += "; charset=utf-8"
+                    self._enviar(200, destino.read_bytes(), tipo)
+                else:
+                    self._enviar(404, b"No encontrado", "text/plain; charset=utf-8")
+            except Exception as e:  # el panel no debe caerse por un fichero a medio escribir
+                self._enviar(500, str(e).encode("utf-8"), "text/plain; charset=utf-8")
+
+    return Manejador
+
+
+def cmd_panel(a) -> None:
+    raiz = raiz_proyecto()
+    servidor = None
+    for puerto in range(a.puerto, a.puerto + 20):
+        try:
+            servidor = ThreadingHTTPServer(("127.0.0.1", puerto), _manejador(raiz))
+            break
+        except OSError:
+            continue
+    if servidor is None:
+        raise Error(f"No hay puertos libres entre {a.puerto} y {a.puerto + 19}")
+    url = f"http://127.0.0.1:{servidor.server_address[1]}/"
+    (raiz / ".factory" / "panel.url").write_text(url + "\n", encoding="utf-8")
+    print(f"Panel de {proyecto(raiz)['nombre']}: {url}", flush=True)
+    if a.abrir:
+        webbrowser.open(url)
+    try:
+        servidor.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        (raiz / ".factory" / "panel.url").unlink(missing_ok=True)
 
 
 # --------------------------------------------------------------------------- CLI
@@ -839,6 +957,11 @@ def main(argv=None) -> int:
     s = sub.add_parser("exportar", help="exporta una rama a .factory/tmp/ para leerla o probarla")
     s.add_argument("ref")
     s.set_defaults(f=cmd_exportar)
+
+    s = sub.add_parser("panel", help="sirve el panel de control HTML en localhost")
+    s.add_argument("--puerto", type=int, default=8765)
+    s.add_argument("--abrir", action="store_true", help="abre el navegador")
+    s.set_defaults(f=cmd_panel)
 
     a = ap.parse_args(argv)
     try:

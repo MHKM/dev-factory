@@ -38,6 +38,15 @@ Para retomar un proyecto, se arranca igual en su carpeta: el orquestador lee `.f
 7. **Validación y lote**: con todas las tareas fusionadas, el validador comprueba los criterios en la release. Después te presenta el lote para aceptar cada funcionalidad.
 8. **Cierre**: PR de la release a `master`; la fusionas y el hito queda cerrado.
 
+## Panel de control
+
+Al arrancar, el orquestador abre el panel en el navegador (`http://127.0.0.1:8765/` o el siguiente puerto libre; la URL queda en `.factory/panel.url`). Trabaja con la terminal y el panel a la vez:
+
+- **Producto**: lo definido y lo aprobado, con los tres OK de cada funcionalidad y acceso a especificaciones, maquetas, diseños, validaciones y decisiones.
+- **Construcción**: lo que te espera, lo que se está haciendo, los próximos pasos y el kanban de tareas.
+
+Se actualiza solo. Para levantarlo a mano, desde la carpeta del proyecto: `~/Documents/projects/dev-factory/bin/factory panel --abrir`. Las maquetas se abren en una pestaña nueva. El renderizado de Markdown usa `marked` desde jsDelivr; sin conexión, los documentos se muestran como texto plano.
+
 ## Dónde mirar
 
 | Para | Comando o ruta |

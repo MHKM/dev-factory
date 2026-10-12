@@ -32,6 +32,7 @@ Antes de nada, lee `${CLAUDE_PLUGIN_ROOT}/comun/reglas-agentes.md`: describe `.f
    - Ejecuta `factory init --nombre "<nombre>"`. Si eligió GitHub: `gh repo create <nombre> --private --source . --remote origin --push` y luego `factory set proyecto remoto=github`.
    - Pasa al bucle (empezará por el descubrimiento).
 3. **Si existe**: ejecuta `factory sync` y `factory siguiente`, resume el estado en 3-5 líneas (qué hito, qué está en marcha, qué espera al humano) y pasa al bucle.
+4. **Panel de control** (en los dos casos, en cuanto exista `.factory/`): comprueba si ya está en marcha con `curl -s -o /dev/null -w '%{http_code}' "$(cat .factory/panel.url 2>/dev/null)"`. Si no responde 200, arráncalo **en segundo plano** (Bash con `run_in_background`) con `factory panel --abrir`. Dile al humano la URL en una línea: ahí verá el producto y la construcción mientras habla contigo.
 
 ## Bucle de trabajo
 
@@ -73,6 +74,7 @@ Si un elemento lleva `en_curso` pero no hay ningún agente tuyo trabajando en é
   1. Registra la decisión: `factory decision --titulo "<tema>" --ref <ID> --texto - <<'EOF'` con la pregunta, la opción elegida, el motivo y los comentarios literales del humano.
   2. Aplica el cambio de estado que corresponda.
   3. Si había preguntas de un agente: `factory resolver <ID> --decision D###`.
+- Cuando presentes algo con artefactos, recuérdale que puede verlo también en el panel (vista Producto para especificaciones y maquetas, vista Construcción para tareas).
 - **Preguntas de agentes** (`motivo: Preguntas pendientes`): léelas con `factory atencion` y conviértelas en preguntas de `AskUserQuestion` con las mismas opciones y la misma recomendación. Si una pregunta es abierta, hazla en el chat. Tras resolverlas, **relanza al agente que preguntó** (consta en la cabecera de las preguntas) con el mismo modo y la decisión en el contexto, aunque `factory siguiente` no lo proponga: tiene que incorporar la respuesta.
 - No satures al humano: agrupa lo que puedas en una sola llamada, sin pasar de 4 preguntas.
 

@@ -239,14 +239,14 @@ Los agentes nunca leen ni editan el estado directamente: usan una **capa común*
 
 ---
 
-## 11. Vistas (HTML local, consume el backend)
+## 11. Panel de control (HTML local)
 
-De momento son **solo de consulta** y leen el backend a través de la misma capa. Actualización por consulta periódica.
+`factory panel` levanta un servidor local (solo `127.0.0.1`, Python estándar) que lee `.factory/` y se refresca solo cada 2,5 s. Se trabaja con la terminal (orquestador) y el panel abiertos a la vez. El orquestador lo arranca al empezar la sesión. De momento es **solo de consulta**: las decisiones se toman en la terminal.
 
-1. **Requiere tu atención**: lo que está en *Esperando humano* o *Bloqueado*, con el motivo.
-2. **Tablero por fase**: columnas por fase; en cada tarjeta, agente asignado y situación. La vista por agente es un filtro.
-3. **Progreso del proyecto**: hitos → funcionalidades → tareas, con avance.
-4. **Vista funcional**: la solución en lenguaje de negocio, basada en los artefactos de análisis (hitos → funcionalidades → maqueta o reglas de negocio).
+1. **Producto**: lo definido y lo aprobado. Perfil (stack, interfaz) y accesos a visión, roadmap y arquitectura. Por hito, cada funcionalidad con sus tres OK (especificación aprobada, construida y validada, aceptada por el humano), su número de criterios y acceso a especificación, maqueta, diseño y validación. Registro de decisiones.
+2. **Construcción**: lo que espera al humano (con las preguntas de los agentes), lo que se está haciendo ahora, los próximos pasos (`factory siguiente`), el avance por funcionalidad y un kanban de tareas por hito (Pendiente · Desarrollo · En revisión · Hecha) con situación, agente, intentos, revisión y PR.
+
+Cualquier elemento se abre en un panel lateral con su ficha (campos, descripción, preguntas, historial) y sus artefactos renderizados.
 
 ---
 
@@ -299,6 +299,7 @@ La plataforma es un **plugin de Claude Code** (`factory`) que vive en este repos
 | Enrutado | `factory siguiente`: calcula a partir del estado qué toca hacer y qué espera al humano |
 | Plantillas de artefactos | `plantillas/` |
 | Protección | Hook `hooks/guardia.py` (PreToolUse sobre Bash) |
+| Panel de control | `factory panel` sirve `panel/index.html` y los artefactos; la página lee `/api/estado` |
 | Conocimiento por stack | Pendiente: skills por stack (§9). De momento el arquitecto fija stack, comandos y convenciones en el perfil |
 
 ### Modelos por agente
@@ -318,7 +319,7 @@ Se cambian en el frontmatter de cada agente.
 1. ✅ Esqueleto: orquestador, descubrimiento, analista, prototipador, arquitecto, desarrollador y validador; `.factory/` con backend de ficheros; ciclo reducido; modelo de ramas y guardia.
 2. Prueba empírica con un proyecto web real y ajuste del flujo.
 3. Skills por stack (empezando por web).
-4. Vista HTML local.
+4. ✅ Panel de control HTML local (producto y construcción).
 5. Backend GitHub Projects detrás de la misma capa.
 
 ---
@@ -348,7 +349,7 @@ Se cambian en el frontmatter de cada agente.
 ## 15. Puntos abiertos
 
 - Skills por stack, empezando por web (después de la prueba empírica).
-- Vista HTML local y si en el futuro permite acciones (aprobar, mover, reasignar).
+- Si el panel permitirá acciones en el futuro (aprobar, comentar, reasignar).
 - Control de coste en dinero por tarea.
 - Adelantar el lote cuando otras funcionalidades dependen de una no aceptada (hoy el lote se presenta al final del hito).
 - Si algún día hay más personas: cómo exponer el estado y compartir los artefactos.
