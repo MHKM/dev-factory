@@ -12,28 +12,40 @@ Cada construcción va en **su propia carpeta**, fuera de este repositorio:
 
 ```bash
 mkdir ~/Documents/projects/web-taller && cd ~/Documents/projects/web-taller
-claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orquestador
+claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator
 ```
 
 Para no escribirlo cada vez:
 
 ```bash
-alias factory-start='claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orquestador'
+alias factory-start='claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator'
 ```
 
-`--plugin-dir` carga el plugin desde este repositorio tal como esté en disco, así que cualquier cambio en agentes, plantillas o en el comando se aplica en la siguiente sesión. Alternativa estable: instalarlo desde el marketplace local (`/plugin marketplace add ~/Documents/projects/dev-factory` y después instalar `factory`) y arrancar solo con `claude --agent factory:orquestador`.
+`--plugin-dir` carga el plugin desde este repositorio tal como esté en disco, así que cualquier cambio en agentes, plantillas o en el comando se aplica en la siguiente sesión. Alternativa estable: instalarlo desde el marketplace local (`/plugin marketplace add ~/Documents/projects/dev-factory` y después instalar `factory`) y arrancar solo con `claude --agent factory:orchestrator`.
 
 Para retomar un proyecto, se arranca igual en su carpeta: el orquestador lee `.factory/`, sincroniza y resume dónde estáis.
+
+### Permisos
+
+Los agentes ejecutan `factory` constantemente. Para que Claude Code no pida aprobación en cada llamada, permite el comando en tu `~/.claude/settings.json`:
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(factory:*)"]
+  }
+}
+```
 
 ## Qué esperar (ejemplo)
 
 > «Quiero construir una web para el taller de mi primo, en Boadilla. Que permita ver los servicios que ofrece y un formulario para que le llamen para cita.»
 
-1. **Inicio**: te pregunta el nombre del proyecto y si quieres repositorio en GitHub o solo local. Crea `.factory/` y el commit inicial.
+1. **Inicio**: te pregunta el nombre del proyecto, si quieres repositorio en GitHub o solo local y en qué idioma se escriben los artefactos. Crea `.factory/`, hace el commit inicial y abre el panel.
 2. **Descubrimiento**: varias rondas cortas sobre servicios, precios, cómo quiere recibir las peticiones, fotos y logo, horario y ubicación. Propone ideas (mapa, botón de WhatsApp, aviso de privacidad…). Al final escribe la visión y el roadmap, y crea los hitos y funcionalidades.
 3. **Arquitectura base**: el arquitecto te propone el stack con 2 o 3 opciones (por ejemplo, una web estática con un servicio de formularios frente a algo con backend). Tú eliges.
-4. **Aprobar el hito**: resumen de visión, roadmap y arquitectura, y el contenido del primer hito. Al aprobarlo se crea `release/H01-…`.
-5. **Especificación y maqueta**: el analista escribe las especificaciones y el prototipador las maquetas HTML. Te las presenta una a una; puedes abrir la maqueta en el navegador.
+4. **Aprobar el hito**: resumen de visión, roadmap y arquitectura, y el contenido del primer hito. Al aprobarlo se crea `release/M01-…`.
+5. **Especificación y maqueta**: el analista escribe las especificaciones y el prototipador las maquetas HTML. Te las presenta una a una; puedes abrir la maqueta desde el panel.
 6. **Construcción**: el arquitecto diseña y crea las tareas. El desarrollador las hace una a una (tests primero) y abre PRs contra la release. El validador revisa cada PR. Tú fusionas.
 7. **Validación y lote**: con todas las tareas fusionadas, el validador comprueba los criterios en la release. Después te presenta el lote para aceptar cada funcionalidad.
 8. **Cierre**: PR de la release a `master`; la fusionas y el hito queda cerrado.
@@ -45,25 +57,26 @@ Al arrancar, el orquestador abre el panel en el navegador (`http://127.0.0.1:876
 - **Producto**: lo definido y lo aprobado, con los tres OK de cada funcionalidad y acceso a especificaciones, maquetas, diseños, validaciones y decisiones.
 - **Construcción**: lo que te espera, lo que se está haciendo, los próximos pasos y el kanban de tareas.
 
-Se actualiza solo. Para levantarlo a mano, desde la carpeta del proyecto: `~/Documents/projects/dev-factory/bin/factory panel --abrir`. Las maquetas se abren en una pestaña nueva. El renderizado de Markdown usa `marked` desde jsDelivr; sin conexión, los documentos se muestran como texto plano.
+Se actualiza solo. Para levantarlo a mano, desde la carpeta del proyecto: `~/Documents/projects/dev-factory/bin/factory panel --open`. Las maquetas se abren en una pestaña nueva. El renderizado de Markdown usa `marked` desde jsDelivr; sin conexión, los documentos se muestran como texto plano.
 
 ## Dónde mirar
 
 | Para | Comando o ruta |
 |---|---|
-| Qué espera de ti | `factory atencion` |
-| Progreso | `factory tablero` |
-| Qué toca ahora | `factory siguiente` |
-| Un elemento | `factory ver F001` |
-| Artefactos | `.factory/artefactos/` |
-| Decisiones | `.factory/decisiones/` |
+| Visión general | el panel |
+| Qué espera de ti | `factory attention` |
+| Progreso | `factory board` |
+| Qué toca ahora | `factory next` |
+| Un elemento | `factory show F001` |
+| Artefactos | `.factory/artifacts/` |
+| Decisiones | `.factory/decisions/` |
 
-`factory` solo está en el PATH de los agentes de una sesión con el plugin cargado. Desde tu terminal, o con `!` dentro de la sesión, usa la ruta completa: `~/Documents/projects/dev-factory/bin/factory tablero`. También puedes pedírselo al orquestador («enséñame el tablero»).
+`factory` solo está en el PATH de los agentes de una sesión con el plugin cargado. Desde tu terminal, o con `!` dentro de la sesión, usa la ruta completa: `~/Documents/projects/dev-factory/bin/factory board`. También puedes pedírselo al orquestador («enséñame el tablero»).
 
 ## Fusiones
 
 - **Con GitHub**: fusionas las PRs en la web. En repos privados con cuenta gratuita no hay protección de rama, así que la única barrera es la guardia local.
-- **En local**: el orquestador te da el comando para ejecutarlo tú con `!` (por ejemplo, `! git switch release/H01-… && git merge --no-ff tarea/T003-…`).
+- **En local**: el orquestador te da el comando para ejecutarlo tú con `!` (por ejemplo, `! git switch release/M01-… && git merge --no-ff task/T003-…`).
 
 En ambos casos, al volver el orquestador ejecuta `factory sync` y detecta la fusión.
 
@@ -92,5 +105,6 @@ Borrar `.factory/` reinicia el estado del proyecto (no el código). No hay papel
 ## Ajustes rápidos
 
 - **Modelos y esfuerzo**: en el frontmatter de `agents/*.md`.
-- **Intentos máximos**: `factory set proyecto max_intentos=N`.
-- **Comportamiento de un rol**: su `agents/<rol>.md`. Las reglas compartidas, en `comun/reglas-agentes.md`.
+- **Intentos máximos**: `factory set project max_attempts=N`.
+- **Idioma de los artefactos**: `factory set project language=en` (afecta a lo que se escriba a partir de ese momento).
+- **Comportamiento de un rol**: su `agents/<rol>.md`. Las reglas compartidas, en `shared/agent-rules.md`.

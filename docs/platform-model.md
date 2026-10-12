@@ -171,7 +171,7 @@ Tareas necesarias que no aportan funcionalidad de negocio (repositorio, entornos
 
 - **Arquitectura base ligera** al inicio, junto al roadmap: solo decisiones estructurales (stack, arquitectura, modelo de datos principal).
 - Cada hito diseña dentro de ese marco. Cambiarlo requiere una decisión explícita.
-- **Registro de decisiones** en `.factory/decisiones/` (qué se decidió y por qué). Los agentes lo consultan antes de actuar.
+- **Registro de decisiones** en `.factory/decisions/` (qué se decidió y por qué). Los agentes lo consultan antes de actuar.
 - Para proyectos existentes: fase de **reconocimiento** inicial que genera un mapa del proyecto.
 
 ---
@@ -184,9 +184,9 @@ Tareas necesarias que no aportan funcionalidad de negocio (repositorio, entornos
 <repo de la construcción>/
   src/ …              ← entregables: ramas y PRs (§12)
   .factory/           ← local, no versionado
-    estado/           ← backend de ficheros: hitos, funcionalidades, tareas (§10)
-    artefactos/       ← visión, roadmap, specs, maquetas, diseños, informes
-    decisiones/       ← registro de decisiones
+    state/            ← backend de ficheros: hitos, funcionalidades, tareas (§10)
+    artifacts/        ← visión, roadmap, specs, maquetas, diseños, informes
+    decisions/        ← registro de decisiones
 ```
 
 - Como `.factory/` está fuera de git, un cambio de rama no le afecta: los agentes que no programan escriben siempre en el mismo sitio, sea cual sea la rama activa.
@@ -226,7 +226,7 @@ Tareas necesarias que no aportan funcionalidad de negocio (repositorio, entornos
 
 Los agentes nunca leen ni editan el estado directamente: usan una **capa común** con operaciones como `crear`, `mover a fase`, `marcar esperando humano`, `listar pendientes`. Cambiar de backend solo cambia lo que hay debajo de esa capa.
 
-### Primer backend: ficheros en `.factory/estado/`
+### Primer backend: ficheros en `.factory/state/`
 - Un `.md` por elemento (hito, funcionalidad, tarea), con su estado en el frontmatter: fase, situación, agente, intentos, rama, PR, enlaces a artefactos.
 - Legible por humanos y agentes; persiste entre sesiones (el orquestador reconstruye el estado al arrancar).
 
@@ -244,7 +244,7 @@ Los agentes nunca leen ni editan el estado directamente: usan una **capa común*
 `factory panel` levanta un servidor local (solo `127.0.0.1`, Python estándar) que lee `.factory/` y se refresca solo cada 2,5 s. Se trabaja con la terminal (orquestador) y el panel abiertos a la vez. El orquestador lo arranca al empezar la sesión. De momento es **solo de consulta**: las decisiones se toman en la terminal.
 
 1. **Producto**: lo definido y lo aprobado. Perfil (stack, interfaz) y accesos a visión, roadmap y arquitectura. Por hito, cada funcionalidad con sus tres OK (especificación aprobada, construida y validada, aceptada por el humano), su número de criterios y acceso a especificación, maqueta, diseño y validación. Registro de decisiones.
-2. **Construcción**: lo que espera al humano (con las preguntas de los agentes), lo que se está haciendo ahora, los próximos pasos (`factory siguiente`), el avance por funcionalidad y un kanban de tareas por hito (Pendiente · Desarrollo · En revisión · Hecha) con situación, agente, intentos, revisión y PR.
+2. **Construcción**: lo que espera al humano (con las preguntas de los agentes), lo que se está haciendo ahora, los próximos pasos (`factory next`), el avance por funcionalidad y un kanban de tareas por hito (Pendiente · Desarrollo · En revisión · Hecha) con situación, agente, intentos, revisión y PR.
 
 Cualquier elemento se abre en un panel lateral con su ficha (campos, descripción, preguntas, historial) y sus artefactos renderizados.
 
@@ -257,9 +257,9 @@ Cualquier elemento se abre en un panel lateral con su ficha (campos, descripció
 ```
 master ──────────────────────────────●─────────  (solo lo aceptado)
          \                          /
-release/hito-01 ──●────●────●──────●  ← ✋ aceptación en lote = fusión a master
+release/M01-…   ──●────●────●──────●  ← ✋ aceptación en lote = fusión a master
                   ↑    ↑    ↑
-              tarea-001  tarea-002  tarea-003   (cada una, PR ✋ a la release)
+              task/T001  task/T002  task/T003   (cada una, PR ✋ a la release)
 ```
 
 - **Una rama release por hito**, creada desde la rama principal al aprobarse el hito. Solo hay **una release activa** a la vez.
@@ -287,19 +287,19 @@ release/hito-01 ──●────●────●──────●  �
 
 ## 13. Implementación en Claude Code
 
-La plataforma es un **plugin de Claude Code** (`factory`) que vive en este repositorio. Detalle de uso en [`uso.md`](uso.md) y del estado en [`estado.md`](estado.md).
+La plataforma es un **plugin de Claude Code** (`factory`) que vive en este repositorio. Detalle de uso en [`usage.md`](usage.md) y del estado en [`state.md`](state.md).
 
 | Pieza del diseño | Implementación |
 |---|---|
-| Orquestador | `agents/orquestador.md`, arrancado como agente principal: `claude --agent factory:orquestador`. Solo puede lanzar los cinco subagentes del plugin |
-| Descubrimiento | Skill `skills/descubrimiento/` que usa el orquestador (un subagente no puede conversar con el humano) |
-| Agentes por rol | `agents/{analista,prototipador,arquitecto,desarrollador,validador}.md`, cada uno con modelo, esfuerzo, herramientas y `maxTurns` |
-| Reglas comunes | `comun/reglas-agentes.md`, que todos los agentes leen al empezar |
+| Orquestador | `agents/orchestrator.md`, arrancado como agente principal: `claude --agent factory:orchestrator`. Solo puede lanzar los cinco subagentes del plugin |
+| Descubrimiento | Skill `skills/discovery/` que usa el orquestador (un subagente no puede conversar con el humano) |
+| Agentes por rol | `agents/{analyst,prototyper,architect,developer,validator}.md`, cada uno con modelo, esfuerzo, herramientas y `maxTurns` |
+| Reglas comunes | `shared/agent-rules.md`, que todos los agentes leen al empezar |
 | Capa de estado | Comando `factory` (`bin/factory`, Python sin dependencias), en el PATH mientras el plugin está activo |
-| Enrutado | `factory siguiente`: calcula a partir del estado qué toca hacer y qué espera al humano |
-| Plantillas de artefactos | `plantillas/` |
-| Protección | Hook `hooks/guardia.py` (PreToolUse sobre Bash) |
-| Panel de control | `factory panel` sirve `panel/index.html` y los artefactos; la página lee `/api/estado` |
+| Enrutado | `factory next`: calcula a partir del estado qué toca hacer y qué espera al humano |
+| Plantillas de artefactos | `templates/` |
+| Protección | Hook `hooks/guard.py` (PreToolUse sobre Bash) |
+| Panel de control | `factory panel` sirve `panel/index.html` y los artefactos; la página lee `/api/state` |
 | Conocimiento por stack | Pendiente: skills por stack (§9). De momento el arquitecto fija stack, comandos y convenciones en el perfil |
 
 ### Modelos por agente
@@ -329,7 +329,7 @@ Se cambian en el frontmatter de cada agente.
 | Decisión | Motivo |
 |---|---|
 | Ciclo de vida reducido para el esqueleto | Validar el flujo con menos máquina de estados; mismos puntos de decisión humana |
-| Primer backend: ficheros `.md` en `.factory/estado/` | El estado debe persistir desde el día uno; valida la capa de backend con dos implementaciones |
+| Primer backend: ficheros `.md` en `.factory/state/` | El estado debe persistir desde el día uno; valida la capa de backend con dos implementaciones |
 | Artefactos y estado en `.factory/`, local y sin versionar; el repo solo para entregables | Evita que los cambios de rama afecten a análisis y diseño sin recurrir a worktrees |
 | Sin worktrees; lectura de código por referencia a rama | Los worktrees son difíciles de gestionar para un humano |
 | Un solo usuario por proyecto | Simplicidad; exponer el estado a otros queda para el futuro |
@@ -337,12 +337,13 @@ Se cambian en el frontmatter de cada agente.
 | Rechazos en el lote se corrigen dentro de la release | Evita reverts sobre código ya integrado; el revert queda como excepción |
 | Protección en dos capas: hooks + protección de rama en GitHub | Los hooks no cubren todas las vías |
 | Tests antes de implementar, escritos por el desarrollador; sin agente tester | Tests definidos por el *qué*; independencia garantizada por el validador y el commit previo de los tests |
-| Máximo de 3 intentos por tarea o funcionalidad (`max_intentos` en el perfil) | Suficiente para corregir y evita bucles; al bloquearse decide el humano |
+| Máximo de 3 intentos por tarea o funcionalidad (`max_attempts` en el perfil) | Suficiente para corregir y evita bucles; al bloquearse decide el humano |
 | Presupuesto: `maxTurns` por agente | Es el límite que ofrece Claude Code; el coste en dinero no se controla todavía |
-| El enrutado lo calcula `factory siguiente`, no el criterio del orquestador | Comportamiento predecible y depurable; el orquestador se centra en hablar con el humano |
+| El enrutado lo calcula `factory next`, no el criterio del orquestador | Comportamiento predecible y depurable; el orquestador se centra en hablar con el humano |
 | El stack se decide siempre con consulta previa en la arquitectura base | Es la decisión más difícil de revertir |
 | Hotfix: tarea sin hito, rama desde la rama principal y PR contra ella; después, la rama principal se lleva a la release activa | Cubre urgencias sin romper el flujo de releases |
 | Revisión de tarea (validador) y validación de funcionalidad (validador en la release), separadas | La primera protege cada PR; la segunda comprueba los criterios integrados |
+| Código y modelo de datos de la plataforma en inglés; textos para el humano en español; idioma de los artefactos configurable por proyecto (`language`, `es` por defecto) | Código mantenible y estándar; el humano sigue leyendo en su idioma |
 
 ---
 

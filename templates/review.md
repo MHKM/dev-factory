@@ -9,7 +9,7 @@
 | Tests commiteados antes de la implementación | ✅/❌ | <commits> |
 | Tests modificados después | sí/no | <qué y si está justificado> |
 | Los tests pasan (`<comando>`) | ✅/❌ | |
-| Cubre los criterios asignados | ✅/❌ | CA-… |
+| Cubre los criterios asignados | ✅/❌ | AC-… |
 | Se ajusta al diseño técnico e interfaces | ✅/❌ | |
 | No toca nada fuera de su alcance | ✅/❌ | |
 | Lint / build | ✅/❌ | |

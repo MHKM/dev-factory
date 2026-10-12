@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""factory: capa de estado de la plataforma de desarrollo agéntico.
+"""factory: state layer of the agentic development platform.
 
-Backend de ficheros: cada hito, funcionalidad y tarea es un .md en
-.factory/estado/ con su estado en el frontmatter. Los agentes leen y
-cambian el estado solo a través de este comando (ver docs/estado.md).
+File backend: every milestone, feature and task is a .md file in
+.factory/state/ with its state in the frontmatter. Agents read and change
+state only through this command (see docs/state.md).
+
+Code and data model are in English; messages for the human are in Spanish.
 """
 from __future__ import annotations
 
@@ -21,49 +23,52 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-RAIZ_PLUGIN = Path(__file__).resolve().parent.parent
-PLANTILLAS = RAIZ_PLUGIN / "plantillas"
+PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+TEMPLATES = PLUGIN_ROOT / "templates"
 
-FASES = {
-    "hito": ["propuesto", "aprobado", "cerrado"],
-    "func": ["definida", "especificada", "en_construccion", "validada", "aceptada",
-             "aplazada", "descartada"],
-    "tarea": ["pendiente", "desarrollo", "en_revision", "hecha", "descartada"],
+PHASES = {
+    "milestone": ["proposed", "approved", "closed"],
+    "feature": ["defined", "specified", "building", "validated", "accepted", "postponed",
+                "discarded"],
+    "task": ["pending", "development", "in_review", "done", "discarded"],
 }
-TERMINALES = {"cerrado", "aceptada", "aplazada", "descartada", "hecha"}
-SITUACIONES = ["en_cola", "en_curso", "esperando_humano", "bloqueada"]
-CLASES = ["tecnica", "transversal", "correccion", "hotfix"]
-PRIORIDADES = ["imprescindible", "deseable", "mas_adelante"]
-TIPO_POR_PREFIJO = {"H": "hito", "F": "func", "T": "tarea"}
-PREFIJO_POR_TIPO = {"hito": "H", "func": "F", "tarea": "T"}
-ANCHO = {"H": 2, "F": 3, "T": 3, "D": 3}
+TERMINAL = {"closed", "accepted", "postponed", "discarded", "done"}
+STATUSES = ["queued", "in_progress", "waiting_human", "blocked"]
+KINDS = ["technical", "cross_cutting", "fix", "hotfix"]
+PRIORITIES = ["must", "should", "later"]
+PREFIX_BY_TYPE = {"milestone": "M", "feature": "F", "task": "T"}
+WIDTH = {"M": 2, "F": 3, "T": 3, "D": 3}
 
-CAMPOS = {
-    "hito": ["id", "tipo", "titulo", "fase", "situacion", "motivo", "objetivo", "rama",
-             "planificado", "cierre", "pr", "creado", "actualizado"],
-    "func": ["id", "tipo", "titulo", "hito", "fase", "situacion", "motivo", "prioridad",
-             "version", "depende_de", "necesita_maqueta", "validacion", "creado",
-             "actualizado"],
-    "tarea": ["id", "tipo", "titulo", "clase", "padre", "hito", "paquete", "fase",
-              "situacion", "motivo", "agente", "intentos", "depende_de", "rama", "pr",
-              "revision", "creado", "actualizado"],
+FIELDS = {
+    "milestone": ["id", "type", "title", "phase", "status", "reason", "goal", "branch",
+                  "planned", "closing", "pr", "created", "updated"],
+    "feature": ["id", "type", "title", "milestone", "phase", "status", "reason", "priority",
+                "version", "depends_on", "needs_mockup", "validation", "created", "updated"],
+    "task": ["id", "type", "title", "kind", "parent", "milestone", "package", "phase", "status",
+             "reason", "agent", "attempts", "depends_on", "branch", "pr", "review", "created",
+             "updated"],
 }
+
+SEC_DESCRIPTION = "Description"
+SEC_PENDING = "Pending questions"
+SEC_RESOLVED = "Resolved questions"
+SEC_HISTORY = "History"
 
 
 class Error(Exception):
     pass
 
 
-# --------------------------------------------------------------------------- utilidades
+# --------------------------------------------------------------------------- utilities
 
-def ahora() -> str:
+def now() -> str:
     return dt.datetime.now().strftime("%Y-%m-%d %H:%M")
 
 
-def slug(texto: str) -> str:
-    t = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
+def slug(text: str) -> str:
+    t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
     t = re.sub(r"[^a-zA-Z0-9]+", "-", t).strip("-").lower()
-    return t[:40].strip("-") or "sin-titulo"
+    return t[:40].strip("-") or "untitled"
 
 
 def git(*args: str, cwd: Path, check: bool = True) -> str:
@@ -77,28 +82,28 @@ def git_ok(*args: str, cwd: Path) -> bool:
     return subprocess.run(["git", *args], cwd=cwd, capture_output=True).returncode == 0
 
 
-def texto_arg(valor: str | None) -> str:
-    """--texto '-' lee de la entrada estándar."""
-    if valor == "-":
+def text_arg(value: str | None) -> str:
+    """--text '-' reads from standard input."""
+    if value == "-":
         return sys.stdin.read().strip()
-    return (valor or "").strip()
+    return (value or "").strip()
 
 
-def raiz_proyecto() -> Path:
-    actual = Path.cwd().resolve()
-    for d in [actual, *actual.parents]:
+def project_root() -> Path:
+    current = Path.cwd().resolve()
+    for d in [current, *current.parents]:
         if (d / ".factory").is_dir():
             return d
     raise Error("No hay .factory/ en este directorio ni en sus padres. Ejecuta `factory init`.")
 
 
-# --------------------------------------------------------------------------- documentos
+# --------------------------------------------------------------------------- documents
 
-def _valor(txt: str):
+def _parse_value(txt: str):
     txt = txt.strip()
     if txt.startswith("[") and txt.endswith("]"):
-        dentro = txt[1:-1].strip()
-        return [x.strip() for x in dentro.split(",") if x.strip()] if dentro else []
+        inner = txt[1:-1].strip()
+        return [x.strip() for x in inner.split(",") if x.strip()] if inner else []
     if re.fullmatch(r"-?\d+", txt):
         return int(txt)
     if len(txt) >= 2 and txt[0] == txt[-1] and txt[0] in "\"'":
@@ -106,7 +111,7 @@ def _valor(txt: str):
     return txt
 
 
-def _texto(v) -> str:
+def _format_value(v) -> str:
     if isinstance(v, list):
         return "[" + ", ".join(str(x) for x in v) + "]"
     if v is None:
@@ -114,57 +119,57 @@ def _texto(v) -> str:
     return str(v).replace("\n", " ")
 
 
-def _buscar_seccion(cuerpo: str, titulo: str):
-    """Devuelve (inicio_contenido, fin) de la sección '## titulo', o None."""
-    marcas = list(re.finditer(r"^## (.+?)\s*$", cuerpo, re.M))
-    for i, m in enumerate(marcas):
-        if m.group(1) == titulo:
-            fin = marcas[i + 1].start() if i + 1 < len(marcas) else len(cuerpo)
-            return m.end(), fin
+def _find_section(body: str, title: str):
+    """Return (content_start, end) of section '## title', or None."""
+    marks = list(re.finditer(r"^## (.+?)\s*$", body, re.M))
+    for i, m in enumerate(marks):
+        if m.group(1) == title:
+            end = marks[i + 1].start() if i + 1 < len(marks) else len(body)
+            return m.end(), end
     return None
 
 
-def anadir_a_seccion(cuerpo: str, titulo: str, texto: str) -> str:
-    pos = _buscar_seccion(cuerpo, titulo)
+def append_to_section(body: str, title: str, text: str) -> str:
+    pos = _find_section(body, title)
     if pos:
-        ini, fin = pos
-        bloque = cuerpo[ini:fin].rstrip("\n")
-        return cuerpo[:ini] + bloque + "\n" + texto.rstrip("\n") + "\n\n" + cuerpo[fin:]
-    seccion = f"## {titulo}\n{texto.rstrip()}\n\n"
-    hist = _buscar_seccion(cuerpo, "Historial")
+        start, end = pos
+        block = body[start:end].rstrip("\n")
+        return body[:start] + block + "\n" + text.rstrip("\n") + "\n\n" + body[end:]
+    section = f"## {title}\n{text.rstrip()}\n\n"
+    hist = _find_section(body, SEC_HISTORY)
     if hist:
-        inicio_titulo = cuerpo.rfind("## Historial", 0, hist[0])
-        return cuerpo[:inicio_titulo] + seccion + cuerpo[inicio_titulo:]
-    return cuerpo.rstrip("\n") + "\n\n" + seccion
+        title_start = body.rfind(f"## {SEC_HISTORY}", 0, hist[0])
+        return body[:title_start] + section + body[title_start:]
+    return body.rstrip("\n") + "\n\n" + section
 
 
-def leer_seccion(cuerpo: str, titulo: str) -> str:
-    pos = _buscar_seccion(cuerpo, titulo)
-    return cuerpo[pos[0]:pos[1]].strip() if pos else ""
+def read_section(body: str, title: str) -> str:
+    pos = _find_section(body, title)
+    return body[pos[0]:pos[1]].strip() if pos else ""
 
 
-def vaciar_seccion(cuerpo: str, titulo: str) -> str:
-    pos = _buscar_seccion(cuerpo, titulo)
+def clear_section(body: str, title: str) -> str:
+    pos = _find_section(body, title)
     if not pos:
-        return cuerpo
-    return cuerpo[:pos[0]] + "\n\n" + cuerpo[pos[1]:]
+        return body
+    return body[:pos[0]] + "\n\n" + body[pos[1]:]
 
 
 class Doc:
-    def __init__(self, ruta: Path):
-        self.ruta = ruta
-        texto = ruta.read_text(encoding="utf-8")
-        m = re.match(r"^---\n(.*?)\n---\n?(.*)\Z", texto, re.S)
+    def __init__(self, path: Path):
+        self.path = path
+        text = path.read_text(encoding="utf-8")
+        m = re.match(r"^---\n(.*?)\n---\n?(.*)\Z", text, re.S)
         if not m:
-            raise Error(f"{ruta} no tiene frontmatter")
+            raise Error(f"{path} no tiene frontmatter")
         self.meta: dict = {}
-        for linea in m.group(1).splitlines():
-            if not linea.strip() or linea.lstrip().startswith("#"):
+        for line in m.group(1).splitlines():
+            if not line.strip() or line.lstrip().startswith("#"):
                 continue
-            k, sep, v = linea.partition(":")
+            k, sep, v = line.partition(":")
             if sep:
-                self.meta[k.strip()] = _valor(v)
-        self.cuerpo = m.group(2)
+                self.meta[k.strip()] = _parse_value(v)
+        self.body = m.group(2)
 
     def __getitem__(self, k):
         return self.meta.get(k, "")
@@ -174,793 +179,792 @@ class Doc:
         return str(self.meta.get("id", ""))
 
     @property
-    def tipo(self) -> str:
-        return str(self.meta.get("tipo", ""))
+    def type(self) -> str:
+        return str(self.meta.get("type", ""))
 
     @property
-    def libre(self) -> bool:
-        return self["situacion"] not in ("en_curso", "esperando_humano", "bloqueada")
+    def free(self) -> bool:
+        return self["status"] not in ("in_progress", "waiting_human", "blocked")
 
-    def historial(self, texto: str) -> None:
-        self.cuerpo = anadir_a_seccion(self.cuerpo, "Historial", f"- {ahora()} · {texto}")
+    def log(self, text: str) -> None:
+        self.body = append_to_section(self.body, SEC_HISTORY, f"- {now()} · {text}")
 
-    def guardar(self) -> None:
-        self.meta["actualizado"] = ahora()
-        cabecera = "\n".join(f"{k}: {_texto(v)}" for k, v in self.meta.items())
-        self.ruta.write_text(f"---\n{cabecera}\n---\n{self.cuerpo}", encoding="utf-8")
+    def save(self) -> None:
+        self.meta["updated"] = now()
+        header = "\n".join(f"{k}: {_format_value(v)}" for k, v in self.meta.items())
+        self.path.write_text(f"---\n{header}\n---\n{self.body}", encoding="utf-8")
 
 
-def ruta_de(raiz: Path, ident: str) -> Path:
-    if ident.lower() == "proyecto":
-        return raiz / ".factory" / "proyecto.md"
-    carpeta = "decisiones" if ident.upper().startswith("D") else "estado"
-    hits = sorted((raiz / ".factory" / carpeta).glob(f"{ident.upper()}-*.md"))
+def path_of(root: Path, ident: str) -> Path:
+    if ident.lower() == "project":
+        return root / ".factory" / "project.md"
+    folder = "decisions" if ident.upper().startswith("D") else "state"
+    hits = sorted((root / ".factory" / folder).glob(f"{ident.upper()}-*.md"))
     if not hits:
         raise Error(f"No existe el elemento {ident}")
     return hits[0]
 
 
-def cargar(raiz: Path, ident: str) -> Doc:
-    return Doc(ruta_de(raiz, ident))
+def load(root: Path, ident: str) -> Doc:
+    return Doc(path_of(root, ident))
 
 
-def todos(raiz: Path) -> list:
-    return [Doc(p) for p in sorted((raiz / ".factory" / "estado").glob("*.md"))]
+def load_all(root: Path) -> list:
+    return [Doc(p) for p in sorted((root / ".factory" / "state").glob("*.md"))]
 
 
-def siguiente_id(raiz: Path, prefijo: str) -> str:
-    carpeta = "decisiones" if prefijo == "D" else "estado"
+def next_id(root: Path, prefix: str) -> str:
+    folder = "decisions" if prefix == "D" else "state"
     nums = []
-    for p in (raiz / ".factory" / carpeta).glob(f"{prefijo}*-*.md"):
-        m = re.match(rf"^{prefijo}(\d+)-", p.name)
+    for p in (root / ".factory" / folder).glob(f"{prefix}*-*.md"):
+        m = re.match(rf"^{prefix}(\d+)-", p.name)
         if m:
             nums.append(int(m.group(1)))
-    return f"{prefijo}{(max(nums) + 1 if nums else 1):0{ANCHO[prefijo]}d}"
+    return f"{prefix}{(max(nums) + 1 if nums else 1):0{WIDTH[prefix]}d}"
 
 
-def artefactos(raiz: Path, doc: Doc) -> dict:
-    a = raiz / ".factory" / "artefactos"
+def artifacts(root: Path, doc: Doc) -> dict:
+    a = root / ".factory" / "artifacts"
     i = doc.id
-    if doc.tipo == "proyecto":
+    if doc.type == "project":
         return {"vision": a / "vision.md", "roadmap": a / "roadmap.md",
-                "arquitectura": a / "arquitectura.md"}
-    if doc.tipo == "hito":
-        return {"diseno": a / i / "diseno.md", "lote": a / i / "lote.md"}
-    if doc.tipo == "func":
-        return {"spec": a / i / "spec.md", "reglas": a / i / "reglas-negocio.md",
-                "maqueta": a / i / "maqueta" / "index.html", "diseno": a / i / "diseno.md",
-                "validacion": a / i / "validacion.md"}
-    if doc.tipo == "tarea":
-        return {"revision": a / i / "revision.md"}
+                "architecture": a / "architecture.md"}
+    if doc.type == "milestone":
+        return {"design": a / i / "design.md", "batch": a / i / "batch.md"}
+    if doc.type == "feature":
+        return {"spec": a / i / "spec.md", "rules": a / i / "business-rules.md",
+                "mockup": a / i / "mockup" / "index.html", "design": a / i / "design.md",
+                "validation": a / i / "validation.md"}
+    if doc.type == "task":
+        return {"review": a / i / "review.md"}
     return {}
 
 
-def proyecto(raiz: Path) -> Doc:
-    return Doc(raiz / ".factory" / "proyecto.md")
+def project(root: Path) -> Doc:
+    return Doc(root / ".factory" / "project.md")
 
 
-def max_intentos(raiz: Path) -> int:
+def max_attempts(root: Path) -> int:
     try:
-        return int(proyecto(raiz)["max_intentos"] or 3)
+        return int(project(root)["max_attempts"] or 3)
     except ValueError:
         return 3
 
 
-# --------------------------------------------------------------------------- comandos
+# --------------------------------------------------------------------------- commands
 
 def cmd_init(a) -> None:
-    raiz = Path.cwd().resolve()
-    fac = raiz / ".factory"
-    if (fac / "proyecto.md").exists():
+    root = Path.cwd().resolve()
+    fac = root / ".factory"
+    if (fac / "project.md").exists():
         print(f"Ya existe {fac}; no se toca nada.")
         return
-    for sub in ("estado", "artefactos", "decisiones", "tmp"):
+    for sub in ("state", "artifacts", "decisions", "tmp"):
         (fac / sub).mkdir(parents=True, exist_ok=True)
 
-    if not git_ok("rev-parse", "--git-dir", cwd=raiz):
-        git("init", "-b", a.rama or "master", cwd=raiz)
-    tiene_commits = git_ok("rev-parse", "--verify", "HEAD", cwd=raiz)
-    rama = a.rama or (git("branch", "--show-current", cwd=raiz, check=False) or "master")
+    if not git_ok("rev-parse", "--git-dir", cwd=root):
+        git("init", "-b", a.branch or "master", cwd=root)
+    has_commits = git_ok("rev-parse", "--verify", "HEAD", cwd=root)
+    branch = a.branch or (git("branch", "--show-current", cwd=root, check=False) or "master")
 
-    gi = raiz / ".gitignore"
-    lineas = gi.read_text(encoding="utf-8").splitlines() if gi.exists() else []
-    if ".factory/" not in lineas:
-        lineas.append(".factory/")
-        gi.write_text("\n".join(lineas) + "\n", encoding="utf-8")
-    if not tiene_commits:
-        git("add", ".gitignore", cwd=raiz)
-        git("commit", "-m", "Initial commit", cwd=raiz)
+    gi = root / ".gitignore"
+    lines = gi.read_text(encoding="utf-8").splitlines() if gi.exists() else []
+    if ".factory/" not in lines:
+        lines.append(".factory/")
+        gi.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if not has_commits:
+        git("add", ".gitignore", cwd=root)
+        git("commit", "-m", "Initial commit", cwd=root)
 
-    origen = git("remote", "get-url", "origin", cwd=raiz, check=False)
-    remoto = "github" if "github.com" in origen else "ninguno"
+    origin = git("remote", "get-url", "origin", cwd=root, check=False)
+    remote = "github" if "github.com" in origin else "none"
 
-    plantilla = (PLANTILLAS / "proyecto.md").read_text(encoding="utf-8")
-    (fac / "proyecto.md").write_text(plantilla, encoding="utf-8")
-    p = proyecto(raiz)
-    p.meta.update({"nombre": a.nombre, "rama_principal": rama, "remoto": remoto,
-                   "creado": ahora()})
-    p.historial("proyecto inicializado")
-    p.guardar()
-    print(f"Inicializado {fac}\nrama principal: {rama} · remoto: {remoto}")
-    if tiene_commits:
+    (fac / "project.md").write_text((TEMPLATES / "project.md").read_text(encoding="utf-8"),
+                                    encoding="utf-8")
+    p = project(root)
+    p.meta.update({"name": a.name, "main_branch": branch, "remote": remote,
+                   "language": a.language, "created": now()})
+    p.log("proyecto inicializado")
+    p.save()
+    print(f"Inicializado {fac}\nrama principal: {branch} · remoto: {remote} · "
+          f"idioma: {a.language}")
+    if has_commits:
         print("Aviso: .gitignore modificado; commitéalo cuando convenga.")
 
 
-def cmd_nuevo(a) -> None:
-    raiz = raiz_proyecto()
-    tipo = a.tipo
-    ident = siguiente_id(raiz, PREFIJO_POR_TIPO[tipo])
-    meta = {k: "" for k in CAMPOS[tipo]}
-    meta.update({"id": ident, "tipo": tipo, "titulo": a.titulo, "fase": FASES[tipo][0],
-                 "situacion": "en_cola", "creado": ahora()})
-    depende = [x.strip().upper() for x in (a.depende or "").split(",") if x.strip()]
+def cmd_new(a) -> None:
+    root = project_root()
+    doc_type = a.type
+    ident = next_id(root, PREFIX_BY_TYPE[doc_type])
+    meta = {k: "" for k in FIELDS[doc_type]}
+    meta.update({"id": ident, "type": doc_type, "title": a.title,
+                 "phase": PHASES[doc_type][0], "status": "queued", "created": now()})
+    depends = [x.strip().upper() for x in (a.depends or "").split(",") if x.strip()]
 
-    if tipo == "hito":
-        meta.update({"objetivo": a.objetivo or "", "planificado": "no"})
-    elif tipo == "func":
-        if not a.hito:
-            raise Error("Una funcionalidad necesita --hito")
-        cargar(raiz, a.hito)
-        meta.update({"hito": a.hito.upper(), "prioridad": a.prioridad or "imprescindible",
-                     "version": 1, "depende_de": depende, "necesita_maqueta": "",
-                     "validacion": ""})
+    if doc_type == "milestone":
+        meta.update({"goal": a.goal or "", "planned": "no"})
+    elif doc_type == "feature":
+        if not a.milestone:
+            raise Error("Una funcionalidad necesita --milestone")
+        load(root, a.milestone)
+        meta.update({"milestone": a.milestone.upper(), "priority": a.priority or "must",
+                     "version": 1, "depends_on": depends})
     else:
-        clase = a.clase or "tecnica"
-        if clase not in CLASES:
-            raise Error(f"Clase no válida: {clase} ({', '.join(CLASES)})")
-        padre = (a.padre or "-").upper()
-        hito = ""
-        if padre.startswith("F"):
-            hito = cargar(raiz, padre)["hito"]
-        elif padre.startswith("H"):
-            cargar(raiz, padre)
-            hito = padre
-        elif clase != "hotfix":
-            raise Error("Una tarea necesita --padre (F### o H##); solo un hotfix va sin padre")
-        meta.update({"clase": clase, "padre": padre, "hito": hito, "paquete": a.paquete or "",
-                     "intentos": 0, "depende_de": depende})
+        kind = a.kind or "technical"
+        parent = (a.parent or "-").upper()
+        milestone = ""
+        if parent.startswith("F"):
+            milestone = load(root, parent)["milestone"]
+        elif parent.startswith("M"):
+            load(root, parent)
+            milestone = parent
+        elif kind != "hotfix":
+            raise Error("Una tarea necesita --parent (F### o M##); solo un hotfix va sin padre")
+        meta.update({"kind": kind, "parent": parent, "milestone": milestone,
+                     "package": a.package or "", "attempts": 0, "depends_on": depends})
 
-    cuerpo = (f"\n# {ident} · {a.titulo}\n\n## Descripción\n"
-              f"{texto_arg(a.texto) or '_(sin descripción)_'}\n\n"
-              "## Preguntas pendientes\n\n## Preguntas resueltas\n\n## Historial\n")
-    ruta = raiz / ".factory" / "estado" / f"{ident}-{slug(a.titulo)}.md"
-    cabecera = "\n".join(f"{k}: {_texto(v)}" for k, v in meta.items())
-    ruta.write_text(f"---\n{cabecera}\n---\n{cuerpo}", encoding="utf-8")
-    d = Doc(ruta)
-    d.historial("creado")
-    d.guardar()
+    body = (f"\n# {ident} · {a.title}\n\n## {SEC_DESCRIPTION}\n"
+            f"{text_arg(a.text) or '_(sin descripción)_'}\n\n"
+            f"## {SEC_PENDING}\n\n## {SEC_RESOLVED}\n\n## {SEC_HISTORY}\n")
+    path = root / ".factory" / "state" / f"{ident}-{slug(a.title)}.md"
+    header = "\n".join(f"{k}: {_format_value(v)}" for k, v in meta.items())
+    path.write_text(f"---\n{header}\n---\n{body}", encoding="utf-8")
+    d = Doc(path)
+    d.log("creado")
+    d.save()
     print(ident)
 
 
-def _aplicar_fase(d: Doc, fase: str, situacion: str | None, motivo: str | None) -> None:
-    if fase not in FASES.get(d.tipo, []):
-        raise Error(f"Fase no válida para {d.tipo}: {fase} ({', '.join(FASES[d.tipo])})")
-    anterior = d["fase"]
-    d.meta["fase"] = fase
-    if fase in TERMINALES:
-        d.meta["situacion"] = ""
-    else:
-        d.meta["situacion"] = situacion or "en_cola"
-    d.meta["motivo"] = motivo or ""
-    d.historial(f"fase {anterior} → {fase}" + (f" ({motivo})" if motivo else ""))
+def _apply_phase(d: Doc, phase: str, status: str | None, reason: str | None) -> None:
+    if phase not in PHASES.get(d.type, []):
+        raise Error(f"Fase no válida para {d.type}: {phase} ({', '.join(PHASES[d.type])})")
+    previous = d["phase"]
+    d.meta["phase"] = phase
+    d.meta["status"] = "" if phase in TERMINAL else (status or "queued")
+    d.meta["reason"] = reason or ""
+    d.log(f"fase {previous} → {phase}" + (f" ({reason})" if reason else ""))
 
 
-def cmd_fase(a) -> None:
-    raiz = raiz_proyecto()
-    d = cargar(raiz, a.id)
-    if a.situacion and a.situacion not in SITUACIONES:
-        raise Error(f"Situación no válida: {a.situacion}")
-    _aplicar_fase(d, a.fase, a.situacion, a.motivo)
-    d.guardar()
-    print(f"{d.id}: fase {d['fase']} · {d['situacion'] or '-'}")
+def cmd_phase(a) -> None:
+    root = project_root()
+    d = load(root, a.id)
+    if a.status and a.status not in STATUSES:
+        raise Error(f"Situación no válida: {a.status}")
+    _apply_phase(d, a.phase, a.status, a.reason)
+    d.save()
+    print(f"{d.id}: fase {d['phase']} · {d['status'] or '-'}")
 
 
-def cmd_situacion(a) -> None:
-    raiz = raiz_proyecto()
-    d = cargar(raiz, a.id)
-    if a.situacion not in SITUACIONES:
-        raise Error(f"Situación no válida: {a.situacion} ({', '.join(SITUACIONES)})")
-    d.meta["situacion"] = a.situacion
-    d.meta["motivo"] = a.motivo or ""
-    d.historial(f"situación → {a.situacion}" + (f" ({a.motivo})" if a.motivo else ""))
-    d.guardar()
-    print(f"{d.id}: {d['fase'] or '-'} · {a.situacion}")
+def cmd_status(a) -> None:
+    root = project_root()
+    d = load(root, a.id)
+    if a.status not in STATUSES:
+        raise Error(f"Situación no válida: {a.status} ({', '.join(STATUSES)})")
+    d.meta["status"] = a.status
+    d.meta["reason"] = a.reason or ""
+    d.log(f"situación → {a.status}" + (f" ({a.reason})" if a.reason else ""))
+    d.save()
+    print(f"{d.id}: {d['phase'] or '-'} · {a.status}")
 
 
 def cmd_set(a) -> None:
-    raiz = raiz_proyecto()
-    d = cargar(raiz, a.id)
-    for par in a.pares:
-        k, sep, v = par.partition("=")
+    root = project_root()
+    d = load(root, a.id)
+    for pair in a.pairs:
+        k, sep, v = pair.partition("=")
         if not sep:
-            raise Error(f"Formato campo=valor: {par}")
-        if k in ("id", "tipo"):
+            raise Error(f"Formato campo=valor: {pair}")
+        if k in ("id", "type"):
             raise Error(f"El campo {k} no se puede cambiar")
-        if k in ("fase", "situacion"):
+        if k in ("phase", "status"):
             raise Error(f"Usa `factory {k}` para cambiar {k}")
-        d.meta[k] = _valor(v)
-        d.historial(f"{k} = {v}")
-    d.guardar()
+        d.meta[k] = _parse_value(v)
+        d.log(f"{k} = {v}")
+    d.save()
     print(f"{d.id} actualizado")
 
 
-def cmd_ver(a) -> None:
-    raiz = raiz_proyecto()
-    ruta = ruta_de(raiz, a.id)
-    print(ruta.read_text(encoding="utf-8"))
+def cmd_show(a) -> None:
+    root = project_root()
+    path = path_of(root, a.id)
+    print(path.read_text(encoding="utf-8"))
     if not a.id.upper().startswith("D"):
-        _imprimir_rutas(raiz, Doc(ruta))
+        _print_paths(root, Doc(path))
 
 
-def _imprimir_rutas(raiz: Path, d: Doc) -> None:
-    arts = artefactos(raiz, d)
+def _print_paths(root: Path, d: Doc) -> None:
+    arts = artifacts(root, d)
     if arts:
         print("Artefactos:")
-        for nombre, ruta in arts.items():
-            estado = "existe" if ruta.exists() else "—"
-            print(f"  {nombre:<13} {ruta.relative_to(raiz)}  [{estado}]")
+        for name, path in arts.items():
+            state = "existe" if path.exists() else "—"
+            print(f"  {name:<13} {path.relative_to(root)}  [{state}]")
 
 
-def cmd_rutas(a) -> None:
-    raiz = raiz_proyecto()
-    _imprimir_rutas(raiz, cargar(raiz, a.id))
+def cmd_paths(a) -> None:
+    root = project_root()
+    _print_paths(root, load(root, a.id))
 
 
-def _fila(d: Doc) -> str:
+def _row(d: Doc) -> str:
     extra = []
-    if d["agente"]:
-        extra.append(d["agente"])
-    if d["motivo"]:
-        extra.append(f"«{d['motivo']}»")
-    return (f"{d.id:<6} {d['fase']:<16} {d['situacion'] or '-':<17} {d['titulo']}"
+    if d["agent"]:
+        extra.append(d["agent"])
+    if d["reason"]:
+        extra.append(f"«{d['reason']}»")
+    return (f"{d.id:<6} {d['phase']:<12} {d['status'] or '-':<14} {d['title']}"
             + (f"  ({'; '.join(extra)})" if extra else ""))
 
 
-def cmd_lista(a) -> None:
-    raiz = raiz_proyecto()
-    for d in todos(raiz):
-        if a.tipo and d.tipo != a.tipo:
+def cmd_list(a) -> None:
+    root = project_root()
+    for d in load_all(root):
+        if a.type and d.type != a.type:
             continue
-        if a.hito and d["hito"] != a.hito.upper() and d.id != a.hito.upper():
+        if a.milestone and d["milestone"] != a.milestone.upper() and d.id != a.milestone.upper():
             continue
-        if a.fase and d["fase"] != a.fase:
+        if a.phase and d["phase"] != a.phase:
             continue
-        if a.situacion and d["situacion"] != a.situacion:
+        if a.status and d["status"] != a.status:
             continue
-        print(_fila(d))
+        print(_row(d))
 
 
-def cmd_tablero(a) -> None:
-    raiz = raiz_proyecto()
-    p = proyecto(raiz)
-    elems = todos(raiz)
-    print(f"Proyecto: {p['nombre']} · descubrimiento {p['descubrimiento']} · "
-          f"arquitectura {p['arquitectura']} · {p['situacion'] or '-'}")
-    hitos = [d for d in elems if d.tipo == "hito"]
-    for h in hitos:
-        print(f"\n{_fila(h)}")
-        for f in (d for d in elems if d.tipo == "func" and d["hito"] == h.id):
-            print(f"  {_fila(f)}")
-            for t in (d for d in elems if d.tipo == "tarea" and d["padre"] == f.id):
-                print(f"      {_fila(t)}")
-        trans = [d for d in elems if d.tipo == "tarea" and d["padre"] == h.id]
-        if trans:
+def cmd_board(a) -> None:
+    root = project_root()
+    p = project(root)
+    docs = load_all(root)
+    print(f"Proyecto: {p['name']} · descubrimiento {p['discovery']} · "
+          f"arquitectura {p['architecture']} · {p['status'] or '-'}")
+    for m in (d for d in docs if d.type == "milestone"):
+        print(f"\n{_row(m)}")
+        for f in (d for d in docs if d.type == "feature" and d["milestone"] == m.id):
+            print(f"  {_row(f)}")
+            for t in (d for d in docs if d.type == "task" and d["parent"] == f.id):
+                print(f"      {_row(t)}")
+        cross = [d for d in docs if d.type == "task" and d["parent"] == m.id]
+        if cross:
             print("  Base técnica:")
-            for t in trans:
-                print(f"      {_fila(t)}")
-    hotfix = [d for d in elems if d.tipo == "tarea" and d["clase"] == "hotfix"]
-    if hotfix:
+            for t in cross:
+                print(f"      {_row(t)}")
+    hotfixes = [d for d in docs if d.type == "task" and d["kind"] == "hotfix"]
+    if hotfixes:
         print("\nHotfix:")
-        for t in hotfix:
-            print(f"  {_fila(t)}")
+        for t in hotfixes:
+            print(f"  {_row(t)}")
 
 
-def _atencion(raiz: Path) -> list:
-    return [d for d in [proyecto(raiz), *todos(raiz)]
-            if d["situacion"] in ("esperando_humano", "bloqueada")]
+def _attention(root: Path) -> list:
+    return [d for d in [project(root), *load_all(root)]
+            if d["status"] in ("waiting_human", "blocked")]
 
 
-def cmd_atencion(a) -> None:
-    raiz = raiz_proyecto()
-    pendientes = _atencion(raiz)
-    if not pendientes:
+def cmd_attention(a) -> None:
+    root = project_root()
+    pending = _attention(root)
+    if not pending:
         print("Nada requiere atención humana.")
-    for d in pendientes:
-        print(f"{d.id or 'proyecto':<9} {d['situacion']:<17} {d['titulo'] or d['nombre']} "
-              f"— {d['motivo'] or 'sin motivo'}")
-        preguntas = leer_seccion(d.cuerpo, "Preguntas pendientes")
-        if preguntas:
-            print("  " + preguntas.replace("\n", "\n  "))
+    for d in pending:
+        print(f"{d.id:<9} {d['status']:<14} {d['title'] or d['name']} "
+              f"— {d['reason'] or 'sin motivo'}")
+        questions = read_section(d.body, SEC_PENDING)
+        if questions:
+            print("  " + questions.replace("\n", "\n  "))
 
 
-def cmd_preguntar(a) -> None:
-    raiz = raiz_proyecto()
-    d = cargar(raiz, a.id)
-    texto = texto_arg(a.texto)
-    if not texto:
-        raise Error("Falta el texto de las preguntas (--texto o --texto - por stdin)")
-    d.cuerpo = anadir_a_seccion(d.cuerpo, "Preguntas pendientes",
-                                f"_{ahora()}{' · ' + a.agente if a.agente else ''}_\n\n{texto}")
-    d.meta["situacion"] = "esperando_humano"
-    d.meta["motivo"] = a.motivo or "Preguntas pendientes"
-    d.historial(f"preguntas al humano ({d.meta['motivo']})")
-    d.guardar()
-    print(f"{d.id or 'proyecto'}: esperando_humano")
+def cmd_ask(a) -> None:
+    root = project_root()
+    d = load(root, a.id)
+    text = text_arg(a.text)
+    if not text:
+        raise Error("Falta el texto de las preguntas (--text o --text - por stdin)")
+    d.body = append_to_section(d.body, SEC_PENDING,
+                               f"_{now()}{' · ' + a.agent if a.agent else ''}_\n\n{text}")
+    d.meta["status"] = "waiting_human"
+    d.meta["reason"] = a.reason or "Preguntas pendientes"
+    d.log(f"preguntas al humano ({d.meta['reason']})")
+    d.save()
+    print(f"{d.id}: waiting_human")
 
 
-def cmd_resolver(a) -> None:
-    raiz = raiz_proyecto()
-    d = cargar(raiz, a.id)
-    pendientes = leer_seccion(d.cuerpo, "Preguntas pendientes")
-    if pendientes:
-        d.cuerpo = vaciar_seccion(d.cuerpo, "Preguntas pendientes")
-        d.cuerpo = anadir_a_seccion(d.cuerpo, "Preguntas resueltas",
-                                    f"**Resueltas en {a.decision}:**\n\n{pendientes}")
-    d.meta["situacion"] = "en_cola"
-    d.meta["motivo"] = ""
-    d.historial(f"preguntas resueltas ({a.decision})")
-    d.guardar()
-    print(f"{d.id or 'proyecto'}: en_cola")
+def cmd_resolve(a) -> None:
+    root = project_root()
+    d = load(root, a.id)
+    pending = read_section(d.body, SEC_PENDING)
+    if pending:
+        d.body = clear_section(d.body, SEC_PENDING)
+        d.body = append_to_section(d.body, SEC_RESOLVED,
+                                   f"**Resueltas en {a.decision}:**\n\n{pending}")
+    d.meta["status"] = "queued"
+    d.meta["reason"] = ""
+    d.log(f"preguntas resueltas ({a.decision})")
+    d.save()
+    print(f"{d.id}: queued")
 
 
 def cmd_decision(a) -> None:
-    raiz = raiz_proyecto()
-    texto = texto_arg(a.texto)
-    if not texto:
-        raise Error("Falta el texto de la decisión (--texto o --texto - por stdin)")
-    ident = siguiente_id(raiz, "D")
-    ruta = raiz / ".factory" / "decisiones" / f"{ident}-{slug(a.titulo)}.md"
+    root = project_root()
+    text = text_arg(a.text)
+    if not text:
+        raise Error("Falta el texto de la decisión (--text o --text - por stdin)")
+    ident = next_id(root, "D")
+    path = root / ".factory" / "decisions" / f"{ident}-{slug(a.title)}.md"
     ref = a.ref or ""
-    ref = "proyecto" if ref.lower() == "proyecto" else ref.upper()
-    ruta.write_text(
-        f"---\nid: {ident}\ntitulo: {a.titulo}\nref: {ref}\nfecha: {ahora()}\n---\n\n"
-        f"# {ident} · {a.titulo}\n\n{texto}\n", encoding="utf-8")
+    ref = "project" if ref.lower() == "project" else ref.upper()
+    path.write_text(
+        f"---\nid: {ident}\ntitle: {a.title}\nref: {ref}\ndate: {now()}\n---\n\n"
+        f"# {ident} · {a.title}\n\n{text}\n", encoding="utf-8")
     print(ident)
 
 
-def cmd_intento(a) -> None:
-    raiz = raiz_proyecto()
-    d = cargar(raiz, a.id)
-    d.meta["intentos"] = int(d["intentos"] or 0) + 1
-    tope = max_intentos(raiz)
-    nota = f"intento {d['intentos']}/{tope}" + (f": {a.motivo}" if a.motivo else "")
-    d.historial(nota)
-    if d["intentos"] >= tope:
-        d.meta["situacion"] = "bloqueada"
-        d.meta["motivo"] = f"Superado el máximo de {tope} intentos" + (
-            f" (último: {a.motivo})" if a.motivo else "")
-    d.guardar()
-    print(f"{d.id}: {nota}" + (" → BLOQUEADA" if d["situacion"] == "bloqueada" else ""))
+def cmd_attempt(a) -> None:
+    root = project_root()
+    d = load(root, a.id)
+    d.meta["attempts"] = int(d["attempts"] or 0) + 1
+    limit = max_attempts(root)
+    note = f"intento {d['attempts']}/{limit}" + (f": {a.reason}" if a.reason else "")
+    d.log(note)
+    if d["attempts"] >= limit:
+        d.meta["status"] = "blocked"
+        d.meta["reason"] = f"Superado el máximo de {limit} intentos" + (
+            f" (último: {a.reason})" if a.reason else "")
+    d.save()
+    print(f"{d.id}: {note}" + (" → BLOQUEADA" if d["status"] == "blocked" else ""))
 
 
-def cmd_abrir_release(a) -> None:
-    raiz = raiz_proyecto()
-    h = cargar(raiz, a.id)
-    if h.tipo != "hito" or h["fase"] != "aprobado":
-        raise Error(f"{h.id} debe ser un hito en fase aprobado")
-    p = proyecto(raiz)
-    base = p["rama_principal"] or "master"
-    rama = h["rama"] or f"release/{h.id}-{slug(h['titulo'])}"
-    if p["remoto"] == "github":
-        git("fetch", "--quiet", "origin", cwd=raiz, check=False)
-        if git_ok("rev-parse", "--verify", f"origin/{base}", cwd=raiz):
+def cmd_open_release(a) -> None:
+    root = project_root()
+    m = load(root, a.id)
+    if m.type != "milestone" or m["phase"] != "approved":
+        raise Error(f"{m.id} debe ser un hito en fase approved")
+    p = project(root)
+    base = p["main_branch"] or "master"
+    branch = m["branch"] or f"release/{m.id}-{slug(m['title'])}"
+    if p["remote"] == "github":
+        git("fetch", "--quiet", "origin", cwd=root, check=False)
+        if git_ok("rev-parse", "--verify", f"origin/{base}", cwd=root):
             base = f"origin/{base}"
-    if not git_ok("rev-parse", "--verify", rama, cwd=raiz):
-        git("branch", "--no-track", rama, base, cwd=raiz)
-    if p["remoto"] == "github":
-        git("push", "-u", "origin", rama, cwd=raiz)
-    h.meta["rama"] = rama
-    h.historial(f"release abierta: {rama} (desde {base})")
-    h.guardar()
-    print(rama)
+    if not git_ok("rev-parse", "--verify", branch, cwd=root):
+        git("branch", "--no-track", branch, base, cwd=root)
+    if p["remote"] == "github":
+        git("push", "-u", "origin", branch, cwd=root)
+    m.meta["branch"] = branch
+    m.log(f"release abierta: {branch} (desde {base})")
+    m.save()
+    print(branch)
 
 
-def cmd_exportar(a) -> None:
-    raiz = raiz_proyecto()
-    if not git_ok("rev-parse", "--verify", a.ref, cwd=raiz):
+def cmd_export(a) -> None:
+    root = project_root()
+    if not git_ok("rev-parse", "--verify", a.ref, cwd=root):
         raise Error(f"No existe la referencia {a.ref}")
-    destino = raiz / ".factory" / "tmp" / slug(a.ref)
-    if destino.exists():
-        shutil.rmtree(destino)
-    destino.mkdir(parents=True)
-    archivo = subprocess.Popen(["git", "archive", a.ref], cwd=raiz, stdout=subprocess.PIPE)
-    subprocess.run(["tar", "-x", "-C", str(destino)], stdin=archivo.stdout, check=True)
-    archivo.wait()
-    print(destino)
+    target = root / ".factory" / "tmp" / slug(a.ref)
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True)
+    archive = subprocess.Popen(["git", "archive", a.ref], cwd=root, stdout=subprocess.PIPE)
+    subprocess.run(["tar", "-x", "-C", str(target)], stdin=archive.stdout, check=True)
+    archive.wait()
+    print(target)
 
 
-def _pr_fusionada(pr, raiz: Path) -> bool:
+def _pr_merged(pr, root: Path) -> bool:
     r = subprocess.run(["gh", "pr", "view", str(pr), "--json", "state", "-q", ".state"],
-                       cwd=raiz, capture_output=True, text=True)
+                       cwd=root, capture_output=True, text=True)
     return r.returncode == 0 and r.stdout.strip() == "MERGED"
 
 
-def _rama_integrada(rama: str, destino: str, raiz: Path, remoto: bool) -> bool:
-    if not rama or not destino:
+def _branch_merged(branch: str, target: str, root: Path, remote: bool) -> bool:
+    if not branch or not target:
         return False
-    if remoto and git_ok("rev-parse", "--verify", f"origin/{destino}", cwd=raiz):
-        destino = f"origin/{destino}"
-    return git_ok("merge-base", "--is-ancestor", rama, destino, cwd=raiz)
+    if remote and git_ok("rev-parse", "--verify", f"origin/{target}", cwd=root):
+        target = f"origin/{target}"
+    return git_ok("merge-base", "--is-ancestor", branch, target, cwd=root)
 
 
 def cmd_sync(a) -> None:
-    raiz = raiz_proyecto()
-    p = proyecto(raiz)
-    remoto = p["remoto"] == "github"
-    principal = p["rama_principal"] or "master"
-    if remoto:
-        git("fetch", "--quiet", "--prune", "origin", cwd=raiz, check=False)
-    elems = todos(raiz)
-    releases = {d.id: d["rama"] for d in elems if d.tipo == "hito"}
-    cambios = 0
-    for d in elems:
-        if d.tipo == "tarea" and d["fase"] == "en_revision":
-            destino = principal if d["clase"] == "hotfix" else releases.get(d["hito"], "")
-            fusionada = (_pr_fusionada(d["pr"], raiz) if remoto and d["pr"]
-                         else _rama_integrada(d["rama"], destino, raiz, remoto))
-            if fusionada:
-                _aplicar_fase(d, "hecha", None, None)
-                d.guardar()
-                cambios += 1
-                print(f"{d.id}: fusionada → hecha")
-        elif d.tipo == "hito" and d["fase"] == "aprobado" and d["cierre"] == "solicitado":
-            fusionada = (_pr_fusionada(d["pr"], raiz) if remoto and d["pr"]
-                         else _rama_integrada(d["rama"], principal, raiz, remoto))
-            if fusionada:
-                d.meta["cierre"] = "fusionado"
-                _aplicar_fase(d, "cerrado", None, None)
-                d.guardar()
-                cambios += 1
-                print(f"{d.id}: release fusionada en {principal} → cerrado")
-    if not cambios:
+    root = project_root()
+    p = project(root)
+    remote = p["remote"] == "github"
+    main = p["main_branch"] or "master"
+    if remote:
+        git("fetch", "--quiet", "--prune", "origin", cwd=root, check=False)
+    docs = load_all(root)
+    releases = {d.id: d["branch"] for d in docs if d.type == "milestone"}
+    changes = 0
+    for d in docs:
+        if d.type == "task" and d["phase"] == "in_review":
+            target = main if d["kind"] == "hotfix" else releases.get(d["milestone"], "")
+            merged = (_pr_merged(d["pr"], root) if remote and d["pr"]
+                      else _branch_merged(d["branch"], target, root, remote))
+            if merged:
+                _apply_phase(d, "done", None, None)
+                d.save()
+                changes += 1
+                print(f"{d.id}: fusionada → done")
+        elif d.type == "milestone" and d["phase"] == "approved" and d["closing"] == "requested":
+            merged = (_pr_merged(d["pr"], root) if remote and d["pr"]
+                      else _branch_merged(d["branch"], main, root, remote))
+            if merged:
+                d.meta["closing"] = "merged"
+                _apply_phase(d, "closed", None, None)
+                d.save()
+                changes += 1
+                print(f"{d.id}: release fusionada en {main} → closed")
+    if not changes:
         print("Sin cambios.")
 
 
-def calcular_siguiente(raiz: Path):
-    """Devuelve (humano, en_curso, acciones); acciones = [(quien, id, texto)]."""
-    p = proyecto(raiz)
-    elems = todos(raiz)
-    hitos = [d for d in elems if d.tipo == "hito"]
-    funcs = [d for d in elems if d.tipo == "func"]
-    tareas = [d for d in elems if d.tipo == "tarea"]
-    por_id = {d.id: d for d in elems}
-    acciones: list = []
+# --------------------------------------------------------------------------- routing
 
-    def accion(quien: str, ident: str, texto: str) -> None:
-        if (quien, ident, texto) not in acciones:
-            acciones.append((quien, ident, texto))
+def compute_next(root: Path):
+    """Return (human, in_progress, actions); actions = [(who, id, mode)].
+
+    who is "orchestrator" or "launch <agent>"; mode is the mode identifier the
+    orchestrator or the agent acts on (see docs/state.md).
+    """
+    p = project(root)
+    docs = load_all(root)
+    milestones = [d for d in docs if d.type == "milestone"]
+    features = [d for d in docs if d.type == "feature"]
+    tasks = [d for d in docs if d.type == "task"]
+    by_id = {d.id: d for d in docs}
+    actions: list = []
+
+    def action(who: str, ident: str, mode: str) -> None:
+        if (who, ident, mode) not in actions:
+            actions.append((who, ident, mode))
 
     def deps_ok(d: Doc) -> bool:
-        return all(por_id.get(x) is not None and por_id[x]["fase"] in ("hecha", "validada",
-                                                                         "aceptada")
-                   for x in d["depende_de"] or [])
+        return all(by_id.get(x) is not None and by_id[x]["phase"] in ("done", "validated",
+                                                                     "accepted")
+                   for x in d["depends_on"] or [])
 
-    humano = _atencion(raiz)
-    en_curso = [d for d in [p, *elems] if d["situacion"] == "en_curso"]
+    human = _attention(root)
+    in_progress = [d for d in [p, *docs] if d["status"] == "in_progress"]
 
-    if p["descubrimiento"] != "hecho":
-        if p.libre:
-            accion("orquestador", "proyecto", "descubrimiento (skill descubrimiento)")
-    elif p["arquitectura"] != "hecha":
-        if p.libre:
-            accion("lanzar arquitecto", "proyecto", "modo base: arquitectura base y perfil")
+    if p["discovery"] != "done":
+        if p.free:
+            action("orchestrator", "project", "discovery")
+    elif p["architecture"] != "done":
+        if p.free:
+            action("launch architect", "project", "base")
     else:
-        activo = next((h for h in hitos if h["fase"] == "aprobado"), None)
-        if activo is None:
-            propuesto = next((h for h in hitos if h["fase"] == "propuesto"), None)
-            if propuesto and propuesto.libre:
-                accion("orquestador", propuesto.id, "pedir aprobación del hito"
-                       + (" (con visión, roadmap y arquitectura base)"
-                          if not any(h["fase"] == "cerrado" for h in hitos) else ""))
-            elif not propuesto:
-                accion("orquestador", "proyecto",
-                       "no quedan hitos: proponer revisión de roadmap (descubrimiento)")
+        active = next((m for m in milestones if m["phase"] == "approved"), None)
+        if active is None:
+            proposed = next((m for m in milestones if m["phase"] == "proposed"), None)
+            if proposed and proposed.free:
+                first = not any(m["phase"] == "closed" for m in milestones)
+                action("orchestrator", proposed.id,
+                       "approve_milestone_first" if first else "approve_milestone")
+            elif not proposed:
+                action("orchestrator", "project", "roadmap_review")
         else:
-            _acciones_hito(raiz, activo, funcs, tareas, deps_ok, accion)
+            _milestone_actions(root, active, features, tasks, deps_ok, action)
 
-    # hotfix: fuera del flujo de hitos
-    _acciones_tareas(raiz, [t for t in tareas if t["clase"] == "hotfix"], tareas, deps_ok,
-                     accion)
-
-    return humano, en_curso, acciones
+    # hotfix: outside the milestone flow
+    _task_actions([t for t in tasks if t["kind"] == "hotfix"], tasks, deps_ok, action)
+    return human, in_progress, actions
 
 
-def cmd_siguiente(a) -> None:
-    humano, en_curso, acciones = calcular_siguiente(raiz_proyecto())
-    if humano:
+def _milestone_actions(root, m, features, tasks, deps_ok, action) -> None:
+    if not m["branch"]:
+        action("orchestrator", m.id, "open_release")
+        return
+    if m["planned"] != "yes":
+        if m.free:
+            action("launch architect", m.id, "milestone")
+        return
+
+    fs = [f for f in features if f["milestone"] == m.id]
+    for f in fs:
+        if not f.free:
+            continue
+        arts = artifacts(root, f)
+        phase = f["phase"]
+        if phase == "defined":
+            if not arts["spec"].exists():
+                action("launch analyst", f.id, "specify")
+            elif f["needs_mockup"] == "yes" and not arts["mockup"].exists():
+                action("launch prototyper", f.id, "mockup")
+            else:
+                action("orchestrator", f.id, "approve_spec")
+        elif phase == "specified":
+            action("launch architect", f.id, "feature")
+        elif phase == "building":
+            own = [t for t in tasks if t["parent"] == f.id and t["phase"] != "discarded"]
+            open_ = [t for t in own if t["phase"] != "done"]
+            if f["validation"] in ("ko", "rejected"):
+                if not open_:
+                    action("launch architect", f.id, "fix")
+            elif own and not open_:
+                action("launch validator", f.id, "feature_validation")
+
+    in_milestone = [t for t in tasks if t["milestone"] == m.id and t["kind"] != "hotfix"]
+    _task_actions(in_milestone, tasks, deps_ok, action)
+
+    alive = [f for f in fs if f["phase"] not in ("postponed", "discarded")]
+    tasks_done = all(t["phase"] in ("done", "discarded") for t in in_milestone)
+    if not tasks_done or not m.free:
+        return
+    if alive and all(f["phase"] in ("validated", "accepted") for f in alive) \
+            and any(f["phase"] == "validated" for f in alive):
+        action("orchestrator", m.id, "present_batch")
+    elif all(f["phase"] == "accepted" for f in alive) and (alive or in_milestone) \
+            and m["closing"] != "requested":
+        action("orchestrator", m.id, "close_milestone")
+
+
+def _task_actions(candidates, tasks, deps_ok, action) -> None:
+    developer_busy = any(t["phase"] == "development" and t["status"] == "in_progress"
+                         for t in tasks)
+    ordered = sorted(candidates, key=lambda t: (t["kind"] != "hotfix",
+                                                t["kind"] != "cross_cutting", t.id))
+    for t in ordered:
+        if not t.free:
+            continue
+        if t["phase"] in ("pending", "development") and not developer_busy and deps_ok(t):
+            group = [t.id]
+            if t["package"] and t["phase"] == "pending":
+                group = [x.id for x in ordered if x["package"] == t["package"]
+                         and x["milestone"] == t["milestone"] and x["phase"] == "pending"
+                         and x.free]
+            if t["kind"] == "hotfix":
+                mode = "hotfix"
+            else:
+                mode = "resume" if t["phase"] == "development" else "implement"
+            action("launch developer", ",".join(group), mode)
+            developer_busy = True
+        elif t["phase"] == "in_review":
+            if t["review"] == "ok":
+                action("orchestrator", t.id, "approve_merge")
+            else:
+                action("launch validator", t.id, "task_review")
+
+
+def cmd_next(a) -> None:
+    human, in_progress, actions = compute_next(project_root())
+    if human:
         print("== Requiere al humano ==")
-        for d in humano:
-            print(f"  {d.id or 'proyecto':<9} {d['situacion']:<17} {d['motivo'] or '-'}")
-    if en_curso:
+        for d in human:
+            print(f"  {d.id:<9} {d['status']:<14} {d['reason'] or '-'}")
+    if in_progress:
         print("== En curso (un agente trabajando) ==")
-        for d in en_curso:
-            print(f"  {d.id or 'proyecto':<9} {d['agente'] or '-'}  {d['titulo'] or ''}")
+        for d in in_progress:
+            print(f"  {d.id:<9} {d['agent'] or '-'}  {d['title'] or ''}")
     print("== Acciones ==")
-    if acciones:
-        for quien, ident, texto in acciones:
-            print(f"  {quien:<24} {ident:<9} {texto}")
+    if actions:
+        for who, ident, mode in actions:
+            print(f"  {who:<20} {ident:<9} {mode}")
     else:
         print("  (ninguna: esperar respuestas humanas o a que terminen los agentes en curso)")
 
 
-def _acciones_hito(raiz, h, funcs, tareas, deps_ok, accion) -> None:
-    if not h["rama"]:
-        accion("orquestador", h.id, "abrir release (factory abrir-release)")
-        return
-    if h["planificado"] != "si":
-        if h.libre:
-            accion("lanzar arquitecto", h.id, "modo hito: tareas transversales y plan")
-        return
-
-    fs = [f for f in funcs if f["hito"] == h.id]
-    for f in fs:
-        if not f.libre:
-            continue
-        arts = artefactos(raiz, f)
-        fase = f["fase"]
-        if fase == "definida":
-            if not arts["spec"].exists():
-                accion("lanzar analista", f.id, "especificar")
-            elif f["necesita_maqueta"] == "si" and not arts["maqueta"].exists():
-                accion("lanzar prototipador", f.id, "maqueta")
-            else:
-                accion("orquestador", f.id, "presentar especificación para aprobación")
-        elif fase == "especificada":
-            accion("lanzar arquitecto", f.id, "modo funcionalidad: diseño técnico y tareas")
-        elif fase == "en_construccion":
-            propias = [t for t in tareas if t["padre"] == f.id and t["fase"] != "descartada"]
-            abiertas = [t for t in propias if t["fase"] != "hecha"]
-            if f["validacion"] in ("ko", "rechazada"):
-                if not abiertas:
-                    accion("lanzar arquitecto", f.id,
-                           "modo corrección: tareas a partir de validación/rechazo")
-            elif propias and not abiertas:
-                accion("lanzar validador", f.id, "modo funcionalidad: validar en la release")
-
-    del_hito = [t for t in tareas if t["hito"] == h.id and t["clase"] != "hotfix"]
-    _acciones_tareas(raiz, del_hito, tareas, deps_ok, accion)
-
-    vivas = [f for f in fs if f["fase"] not in ("aplazada", "descartada")]
-    tareas_ok = all(t["fase"] in ("hecha", "descartada") for t in del_hito)
-    if not tareas_ok or not h.libre:
-        return
-    if vivas and all(f["fase"] in ("validada", "aceptada") for f in vivas) \
-            and any(f["fase"] == "validada" for f in vivas):
-        accion("orquestador", h.id, "preparar y presentar lote de aceptación")
-    elif all(f["fase"] == "aceptada" for f in vivas) and (vivas or del_hito) \
-            and h["cierre"] != "solicitado":
-        accion("orquestador", h.id, "cerrar hito: solicitar fusión de la release")
-
-
-def _acciones_tareas(raiz, candidatas, tareas, deps_ok, accion) -> None:
-    dev_ocupado = any(t["fase"] == "desarrollo" and t["situacion"] == "en_curso"
-                      for t in tareas)
-    orden = sorted(candidatas, key=lambda t: (t["clase"] != "hotfix",
-                                              t["clase"] != "transversal", t.id))
-    for t in orden:
-        if not t.libre:
-            continue
-        if t["fase"] in ("pendiente", "desarrollo") and not dev_ocupado and deps_ok(t):
-            grupo = [t.id]
-            if t["paquete"] and t["fase"] == "pendiente":
-                grupo = [x.id for x in orden if x["paquete"] == t["paquete"]
-                         and x["hito"] == t["hito"] and x["fase"] == "pendiente"
-                         and x.libre]
-            modo = "retomar" if t["fase"] == "desarrollo" else "implementar"
-            paquete = f" (paquete {t['paquete']})" if len(grupo) > 1 else ""
-            accion("lanzar desarrollador", ",".join(grupo), f"{modo}{paquete}")
-            dev_ocupado = True
-        elif t["fase"] == "en_revision":
-            if t["revision"] == "ok":
-                accion("orquestador", t.id, "pedir aprobación y fusión de la PR")
-            else:
-                accion("lanzar validador", t.id, "modo tarea: revisar")
-
-
 # --------------------------------------------------------------------------- panel
 
-def _url_prs(raiz: Path) -> str:
-    origen = git("remote", "get-url", "origin", cwd=raiz, check=False)
-    m = re.search(r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?$", origen)
+def _prs_url(root: Path) -> str:
+    origin = git("remote", "get-url", "origin", cwd=root, check=False)
+    m = re.search(r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?$", origin)
     return f"https://github.com/{m.group(1)}/pull/" if m else ""
 
 
-def estado_json(raiz: Path) -> dict:
-    base_art = raiz / ".factory" / "artefactos"
+def state_json(root: Path) -> dict:
+    art_base = root / ".factory" / "artifacts"
 
-    def serializar(d: Doc) -> dict:
-        arts = {k: str(v.relative_to(base_art)) for k, v in artefactos(raiz, d).items()
+    def serialize(d: Doc) -> dict:
+        arts = {k: str(v.relative_to(art_base)) for k, v in artifacts(root, d).items()
                 if v.exists()}
-        dato = {"meta": d.meta, "cuerpo": d.cuerpo, "artefactos": arts}
-        if d.tipo == "func" and "spec" in arts:
-            texto = (base_art / arts["spec"]).read_text(encoding="utf-8")
-            dato["criterios"] = len(set(re.findall(r"CA-F\d+-\d+", texto)))
-        return dato
+        data = {"meta": d.meta, "body": d.body, "artifacts": arts}
+        if d.type == "feature" and "spec" in arts:
+            text = (art_base / arts["spec"]).read_text(encoding="utf-8")
+            data["criteria"] = len(set(re.findall(r"AC-F\d+-\d+", text)))
+        return data
 
-    decisiones = []
-    for ruta in sorted((raiz / ".factory" / "decisiones").glob("D*.md")):
+    decisions = []
+    for path in sorted((root / ".factory" / "decisions").glob("D*.md")):
         try:
-            d = Doc(ruta)
-            decisiones.append({"meta": d.meta, "cuerpo": d.cuerpo})
+            d = Doc(path)
+            decisions.append({"meta": d.meta, "body": d.body})
         except Error:
             pass
-    humano, en_curso, acciones = calcular_siguiente(raiz)
+    human, in_progress, actions = compute_next(root)
     return {
-        "proyecto": serializar(proyecto(raiz)),
-        "elementos": [serializar(d) for d in todos(raiz)],
-        "decisiones": decisiones,
-        "acciones": [{"quien": q, "id": i, "texto": t} for q, i, t in acciones],
-        "max_intentos": max_intentos(raiz),
-        "url_prs": _url_prs(raiz),
-        "generado": ahora(),
+        "project": serialize(project(root)),
+        "items": [serialize(d) for d in load_all(root)],
+        "decisions": decisions,
+        "actions": [{"who": w, "id": i, "mode": m} for w, i, m in actions],
+        "max_attempts": max_attempts(root),
+        "prs_url": _prs_url(root),
+        "generated": now(),
     }
 
 
-def _manejador(raiz: Path):
-    base_art = (raiz / ".factory" / "artefactos").resolve()
+def _handler(root: Path):
+    art_base = (root / ".factory" / "artifacts").resolve()
 
-    class Manejador(BaseHTTPRequestHandler):
-        def log_message(self, *args):  # silencio
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):  # keep the terminal quiet
             pass
 
-        def _enviar(self, codigo: int, cuerpo: bytes, tipo: str) -> None:
-            self.send_response(codigo)
-            self.send_header("Content-Type", tipo)
+        def _send(self, code: int, body: bytes, content_type: str) -> None:
+            self.send_response(code)
+            self.send_header("Content-Type", content_type)
             self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(cuerpo)))
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(cuerpo)
+            self.wfile.write(body)
 
         def do_GET(self):
-            ruta = unquote(urlparse(self.path).path)
+            route = unquote(urlparse(self.path).path)
             try:
-                if ruta in ("/", "/index.html"):
-                    html = (RAIZ_PLUGIN / "panel" / "index.html").read_bytes()
-                    self._enviar(200, html, "text/html; charset=utf-8")
-                elif ruta == "/api/estado":
-                    datos = json.dumps(estado_json(raiz), ensure_ascii=False, default=str)
-                    self._enviar(200, datos.encode("utf-8"), "application/json; charset=utf-8")
-                elif ruta.startswith("/artefacto/"):
-                    destino = (base_art / ruta[len("/artefacto/"):]).resolve()
-                    if base_art not in destino.parents or not destino.is_file():
-                        self._enviar(404, b"No encontrado", "text/plain; charset=utf-8")
+                if route in ("/", "/index.html"):
+                    html = (PLUGIN_ROOT / "panel" / "index.html").read_bytes()
+                    self._send(200, html, "text/html; charset=utf-8")
+                elif route == "/api/state":
+                    data = json.dumps(state_json(root), ensure_ascii=False, default=str)
+                    self._send(200, data.encode("utf-8"), "application/json; charset=utf-8")
+                elif route.startswith("/artifact/"):
+                    target = (art_base / route[len("/artifact/"):]).resolve()
+                    if art_base not in target.parents or not target.is_file():
+                        self._send(404, b"No encontrado", "text/plain; charset=utf-8")
                         return
-                    tipo = mimetypes.guess_type(destino.name)[0] or "application/octet-stream"
-                    if destino.suffix == ".md":
-                        tipo = "text/plain"
-                    if tipo.startswith("text/"):
-                        tipo += "; charset=utf-8"
-                    self._enviar(200, destino.read_bytes(), tipo)
+                    ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                    if target.suffix == ".md":
+                        ctype = "text/plain"
+                    if ctype.startswith("text/"):
+                        ctype += "; charset=utf-8"
+                    self._send(200, target.read_bytes(), ctype)
                 else:
-                    self._enviar(404, b"No encontrado", "text/plain; charset=utf-8")
-            except Exception as e:  # el panel no debe caerse por un fichero a medio escribir
-                self._enviar(500, str(e).encode("utf-8"), "text/plain; charset=utf-8")
+                    self._send(404, b"No encontrado", "text/plain; charset=utf-8")
+            except Exception as e:  # a half-written file must not bring the panel down
+                self._send(500, str(e).encode("utf-8"), "text/plain; charset=utf-8")
 
-    return Manejador
+    return Handler
 
 
 def cmd_panel(a) -> None:
-    raiz = raiz_proyecto()
-    servidor = None
-    for puerto in range(a.puerto, a.puerto + 20):
+    root = project_root()
+    server = None
+    for port in range(a.port, a.port + 20):
         try:
-            servidor = ThreadingHTTPServer(("127.0.0.1", puerto), _manejador(raiz))
+            server = ThreadingHTTPServer(("127.0.0.1", port), _handler(root))
             break
         except OSError:
             continue
-    if servidor is None:
-        raise Error(f"No hay puertos libres entre {a.puerto} y {a.puerto + 19}")
-    url = f"http://127.0.0.1:{servidor.server_address[1]}/"
-    (raiz / ".factory" / "panel.url").write_text(url + "\n", encoding="utf-8")
-    print(f"Panel de {proyecto(raiz)['nombre']}: {url}", flush=True)
-    if a.abrir:
+    if server is None:
+        raise Error(f"No hay puertos libres entre {a.port} y {a.port + 19}")
+    url = f"http://127.0.0.1:{server.server_address[1]}/"
+    (root / ".factory" / "panel.url").write_text(url + "\n", encoding="utf-8")
+    print(f"Panel de {project(root)['name']}: {url}", flush=True)
+    if a.open:
         webbrowser.open(url)
     try:
-        servidor.serve_forever()
+        server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
-        (raiz / ".factory" / "panel.url").unlink(missing_ok=True)
+        (root / ".factory" / "panel.url").unlink(missing_ok=True)
 
 
 # --------------------------------------------------------------------------- CLI
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="factory", description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(prog="factory", description="Capa de estado de factory")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("init", help="crea .factory/ en el directorio actual")
-    s.add_argument("--nombre", required=True)
-    s.add_argument("--rama", help="rama principal (por defecto la actual o master)")
+    s.add_argument("--name", required=True)
+    s.add_argument("--branch", help="rama principal (por defecto la actual o master)")
+    s.add_argument("--language", default="es", help="idioma de los artefactos (por defecto es)")
     s.set_defaults(f=cmd_init)
 
-    s = sub.add_parser("nuevo", help="crea un hito, funcionalidad o tarea; imprime su ID")
-    s.add_argument("tipo", choices=["hito", "func", "tarea"])
-    s.add_argument("--titulo", required=True)
-    s.add_argument("--texto", help="descripción; '-' para leer de stdin")
-    s.add_argument("--objetivo")
-    s.add_argument("--hito")
-    s.add_argument("--prioridad", choices=PRIORIDADES)
-    s.add_argument("--padre")
-    s.add_argument("--clase", choices=CLASES)
-    s.add_argument("--paquete")
-    s.add_argument("--depende", help="IDs separados por comas")
-    s.set_defaults(f=cmd_nuevo)
+    s = sub.add_parser("new", help="crea un hito, funcionalidad o tarea; imprime su ID")
+    s.add_argument("type", choices=["milestone", "feature", "task"])
+    s.add_argument("--title", required=True)
+    s.add_argument("--text", help="descripción; '-' para leer de stdin")
+    s.add_argument("--goal")
+    s.add_argument("--milestone")
+    s.add_argument("--priority", choices=PRIORITIES)
+    s.add_argument("--parent")
+    s.add_argument("--kind", choices=KINDS)
+    s.add_argument("--package")
+    s.add_argument("--depends", help="IDs separados por comas")
+    s.set_defaults(f=cmd_new)
 
-    s = sub.add_parser("fase", help="cambia la fase (por defecto pasa a en_cola)")
+    s = sub.add_parser("phase", help="cambia la fase (por defecto pasa a queued)")
     s.add_argument("id")
-    s.add_argument("fase")
-    s.add_argument("--situacion")
-    s.add_argument("--motivo")
-    s.set_defaults(f=cmd_fase)
+    s.add_argument("phase")
+    s.add_argument("--status")
+    s.add_argument("--reason")
+    s.set_defaults(f=cmd_phase)
 
-    s = sub.add_parser("situacion", help="cambia la situación")
+    s = sub.add_parser("status", help="cambia la situación")
     s.add_argument("id")
-    s.add_argument("situacion")
-    s.add_argument("--motivo")
-    s.set_defaults(f=cmd_situacion)
+    s.add_argument("status")
+    s.add_argument("--reason")
+    s.set_defaults(f=cmd_status)
 
     s = sub.add_parser("set", help="cambia campos: factory set ID campo=valor ...")
     s.add_argument("id")
-    s.add_argument("pares", nargs="+")
+    s.add_argument("pairs", nargs="+")
     s.set_defaults(f=cmd_set)
 
-    for nombre, fn, ayuda in (("ver", cmd_ver, "muestra un elemento y sus artefactos"),
-                              ("rutas", cmd_rutas, "rutas de los artefactos de un elemento")):
-        s = sub.add_parser(nombre, help=ayuda)
+    for name, fn, help_ in (("show", cmd_show, "muestra un elemento y sus artefactos"),
+                            ("paths", cmd_paths, "rutas de los artefactos de un elemento")):
+        s = sub.add_parser(name, help=help_)
         s.add_argument("id")
         s.set_defaults(f=fn)
 
-    s = sub.add_parser("lista", help="lista elementos con filtros")
-    s.add_argument("--tipo", choices=["hito", "func", "tarea"])
-    s.add_argument("--hito")
-    s.add_argument("--fase")
-    s.add_argument("--situacion")
-    s.set_defaults(f=cmd_lista)
+    s = sub.add_parser("list", help="lista elementos con filtros")
+    s.add_argument("--type", choices=["milestone", "feature", "task"])
+    s.add_argument("--milestone")
+    s.add_argument("--phase")
+    s.add_argument("--status")
+    s.set_defaults(f=cmd_list)
 
-    sub.add_parser("tablero", help="progreso: hitos → funcionalidades → tareas") \
-        .set_defaults(f=cmd_tablero)
-    sub.add_parser("atencion", help="lo que espera al humano o está bloqueado") \
-        .set_defaults(f=cmd_atencion)
-    sub.add_parser("siguiente", help="qué hay que hacer ahora (enrutado del orquestador)") \
-        .set_defaults(f=cmd_siguiente)
+    sub.add_parser("board", help="progreso: hitos → funcionalidades → tareas") \
+        .set_defaults(f=cmd_board)
+    sub.add_parser("attention", help="lo que espera al humano o está bloqueado") \
+        .set_defaults(f=cmd_attention)
+    sub.add_parser("next", help="qué hay que hacer ahora (enrutado del orquestador)") \
+        .set_defaults(f=cmd_next)
     sub.add_parser("sync", help="detecta PRs/releases fusionadas y actualiza el estado") \
         .set_defaults(f=cmd_sync)
 
-    s = sub.add_parser("preguntar", help="deja preguntas al humano y pasa a esperando_humano")
+    s = sub.add_parser("ask", help="deja preguntas al humano y pasa a waiting_human")
     s.add_argument("id")
-    s.add_argument("--texto", required=True, help="'-' para leer de stdin")
-    s.add_argument("--motivo")
-    s.add_argument("--agente")
-    s.set_defaults(f=cmd_preguntar)
+    s.add_argument("--text", required=True, help="'-' para leer de stdin")
+    s.add_argument("--reason")
+    s.add_argument("--agent")
+    s.set_defaults(f=cmd_ask)
 
-    s = sub.add_parser("resolver", help="marca las preguntas como resueltas por una decisión")
+    s = sub.add_parser("resolve", help="marca las preguntas como resueltas por una decisión")
     s.add_argument("id")
     s.add_argument("--decision", required=True)
-    s.set_defaults(f=cmd_resolver)
+    s.set_defaults(f=cmd_resolve)
 
     s = sub.add_parser("decision", help="registra una decisión; imprime su ID")
-    s.add_argument("--titulo", required=True)
+    s.add_argument("--title", required=True)
     s.add_argument("--ref")
-    s.add_argument("--texto", required=True, help="'-' para leer de stdin")
+    s.add_argument("--text", required=True, help="'-' para leer de stdin")
     s.set_defaults(f=cmd_decision)
 
-    s = sub.add_parser("intento", help="suma un intento; bloquea al llegar al máximo")
+    s = sub.add_parser("attempt", help="suma un intento; bloquea al llegar al máximo")
     s.add_argument("id")
-    s.add_argument("--motivo")
-    s.set_defaults(f=cmd_intento)
+    s.add_argument("--reason")
+    s.set_defaults(f=cmd_attempt)
 
-    s = sub.add_parser("abrir-release", help="crea la rama release de un hito aprobado")
+    s = sub.add_parser("open-release", help="crea la rama release de un hito aprobado")
     s.add_argument("id")
-    s.set_defaults(f=cmd_abrir_release)
+    s.set_defaults(f=cmd_open_release)
 
-    s = sub.add_parser("exportar", help="exporta una rama a .factory/tmp/ para leerla o probarla")
+    s = sub.add_parser("export", help="exporta una rama a .factory/tmp/ para leerla o probarla")
     s.add_argument("ref")
-    s.set_defaults(f=cmd_exportar)
+    s.set_defaults(f=cmd_export)
 
     s = sub.add_parser("panel", help="sirve el panel de control HTML en localhost")
-    s.add_argument("--puerto", type=int, default=8765)
-    s.add_argument("--abrir", action="store_true", help="abre el navegador")
+    s.add_argument("--port", type=int, default=8765)
+    s.add_argument("--open", action="store_true", help="abre el navegador")
     s.set_defaults(f=cmd_panel)
 
     a = ap.parse_args(argv)

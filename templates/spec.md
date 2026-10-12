@@ -1,6 +1,6 @@
 # F### · <título> — Especificación
 
-**Hito:** H## · **Versión:** 1 · **Prioridad:** <imprescindible/deseable>
+**Hito:** M## · **Versión:** 1 · **Prioridad:** <imprescindible/deseable>
 
 ## Necesidad
 <Qué quiere conseguir el usuario y por qué, en lenguaje de negocio.>
@@ -11,8 +11,8 @@
 ## Criterios de aceptación
 Cada criterio es comprobable y se traza con un test.
 
-- **CA-F###-01** — Dado <contexto>, cuando <acción>, entonces <resultado observable>.
-- **CA-F###-02** — …
+- **AC-F###-01** — Dado <contexto>, cuando <acción>, entonces <resultado observable>.
+- **AC-F###-02** — …
 
 ## Datos
 | Dato | Obligatorio | Reglas |

@@ -1,5 +1,5 @@
 ---
-name: descubrimiento
+name: discovery
 description: Modo descubrimiento del orquestador de factory. Conversa con el humano para entender y definir lo que quiere construir, propone ideas, prioriza y produce la visión, el roadmap por hitos y las funcionalidades. Úsala al empezar un proyecto, ante peticiones poco definidas y para revisar el roadmap al cerrar un hito.
 ---
 
@@ -7,7 +7,7 @@ description: Modo descubrimiento del orquestador de factory. Conversa con el hum
 
 Conversas directamente con el humano para **descubrir y definir** lo que quiere, no solo para tomar nota. Es la única fase en la que se habla con él de forma abierta.
 
-Las plantillas están en `${CLAUDE_PLUGIN_ROOT}/plantillas/` (`vision.md`, `roadmap.md`).
+Las plantillas están en `${CLAUDE_PLUGIN_ROOT}/templates/` (`vision.md`, `roadmap.md`). Escribe los artefactos en el idioma del campo `language` de `.factory/project.md`.
 
 ## Cómo conversar
 
@@ -22,7 +22,7 @@ Las plantillas están en `${CLAUDE_PLUGIN_ROOT}/plantillas/` (`vision.md`, `road
 
 1. **Entender.** Qué quiere conseguir, para quién y por qué ahora. Cómo se resuelve hoy. Ejemplos o referencias que le gusten.
 2. **Explorar.** Qué tiene que poder hacer cada tipo de usuario. Aquí entran tus sugerencias. Pregunta por lo que suele olvidarse en ese tipo de producto.
-3. **Priorizar.** Clasifica cada funcionalidad junto con el humano como `imprescindible`, `deseable` o `más adelante`.
+3. **Priorizar.** Clasifica cada funcionalidad junto con el humano: imprescindible (`must`), deseable (`should`) o más adelante (`later`).
 4. **Contexto y restricciones.** Contenidos que aporta él (textos, fotos, logo), cuentas o servicios que ya tiene, plazos, presupuesto, quién mantiene luego el sistema, idiomas, requisitos legales (p. ej. aviso de privacidad si se recogen datos personales).
 5. **Roadmap.** Propón hitos:
    - El primero, pequeño y usable de principio a fin.
@@ -40,24 +40,24 @@ Para «una web para el taller de mi primo en Boadilla, con los servicios y un fo
 
 ## Al terminar
 
-1. Escribe `.factory/artefactos/vision.md` y `.factory/artefactos/roadmap.md` con las plantillas.
+1. Escribe `.factory/artifacts/vision.md` y `.factory/artifacts/roadmap.md` con las plantillas.
 2. Crea los elementos:
-   - Hitos: `factory nuevo hito --titulo "…" --objetivo "<al terminar se puede…>"`.
+   - Hitos: `factory new milestone --title "…" --goal "<al terminar se puede…>"`.
    - Funcionalidades de **cada** hito, con su descripción en lenguaje de negocio:
      ```
-     factory nuevo func --titulo "…" --hito H01 --prioridad imprescindible --texto - <<'EOF'
+     factory new feature --title "…" --milestone M01 --priority must --text - <<'EOF'
      <qué necesita el usuario, qué tiene que poder hacer, datos y detalles hablados, sugerencias aceptadas que incluye>
      EOF
      ```
      Las que quedaron como «más adelante» van solo en `roadmap.md`, sin elemento.
-   - `--depende` si una funcionalidad necesita otra.
-3. Marca el perfil: `factory set proyecto descubrimiento=hecho interfaz=<web|ninguna|mixta> descripcion="<una línea>"`.
-4. Registra como decisión lo que se haya decidido de forma explícita (prioridades, ideas descartadas y su motivo): `factory decision --titulo "Alcance inicial" --ref proyecto --texto -`.
+   - `--depends` si una funcionalidad necesita otra.
+3. Marca el perfil: `factory set project discovery=done interface=<web|none|mixed> description="<una línea>"`.
+4. Registra como decisión lo que se haya decidido de forma explícita (prioridades, ideas descartadas y su motivo): `factory decision --title "Alcance inicial" --ref project --text -`.
 5. Cuéntale al humano en 3-4 líneas qué queda definido y que el siguiente paso es la arquitectura base. Vuelve al bucle del orquestador.
 
-## Modo revisión (al cerrar un hito o ante una petición nueva)
+## Modo revisión (`roadmap_review`, o ante una petición nueva)
 
-1. Lee `vision.md`, `roadmap.md`, el `lote.md` del hito cerrado y las decisiones recientes.
+1. Lee `vision.md`, `roadmap.md`, el `batch.md` del hito cerrado y las decisiones recientes.
 2. Pregunta solo lo necesario: qué ha aprendido con lo entregado, qué cambia de prioridad y qué es nuevo.
-3. Actualiza `roadmap.md` (y `vision.md` si cambia el alcance). Crea los nuevos hitos y funcionalidades, y aplaza o descarta lo que ya no aplica.
+3. Actualiza `roadmap.md` (y `vision.md` si cambia el alcance). Crea los nuevos hitos y funcionalidades, y aplaza (`postponed`) o descarta (`discarded`) lo que ya no aplica.
 4. Para una petición nueva a mitad de un hito, decide con el humano si entra en el hito actual o en uno posterior.

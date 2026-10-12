@@ -7,448 +7,456 @@
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <style>
 :root {
-  --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --texto: #1d2330; --suave: #5d6677;
-  --borde: #e2e6ec; --acento: #4f46e5; --sombra: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
-  --gris: #6b7280; --gris-bg: #eef0f3;
-  --azul: #1d4ed8; --azul-bg: #e3ebff;
-  --ambar: #b45309; --ambar-bg: #fdf0d9;
-  --violeta: #7c3aed; --violeta-bg: #efe7ff;
-  --verde: #15803d; --verde-bg: #dcf5e4;
-  --rojo: #b91c1c; --rojo-bg: #fde4e4;
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f1f3f6; --text: #1d2330; --muted: #5d6677;
+  --border: #e2e6ec; --accent: #4f46e5; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  --gray: #6b7280; --gray-bg: #eef0f3;
+  --blue: #1d4ed8; --blue-bg: #e3ebff;
+  --amber: #b45309; --amber-bg: #fdf0d9;
+  --violet: #7c3aed; --violet-bg: #efe7ff;
+  --green: #15803d; --green-bg: #dcf5e4;
+  --red: #b91c1c; --red-bg: #fde4e4;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1219; --panel: #171b24; --panel-2: #1e2330; --texto: #e6e9ef; --suave: #9aa3b5;
-    --borde: #2a3040; --acento: #8b85ff; --sombra: none;
-    --gris: #a3aab8; --gris-bg: #262c39;
-    --azul: #8fb0ff; --azul-bg: #1c2a4d;
-    --ambar: #f5c46b; --ambar-bg: #3a2c12;
-    --violeta: #c4a7ff; --violeta-bg: #2e2247;
-    --verde: #77d99a; --verde-bg: #15301f;
-    --rojo: #ff9b9b; --rojo-bg: #3d1a1a;
+    --bg: #0f1219; --surface: #171b24; --surface-2: #1e2330; --text: #e6e9ef; --muted: #9aa3b5;
+    --border: #2a3040; --accent: #8b85ff; --shadow: none;
+    --gray: #a3aab8; --gray-bg: #262c39;
+    --blue: #8fb0ff; --blue-bg: #1c2a4d;
+    --amber: #f5c46b; --amber-bg: #3a2c12;
+    --violet: #c4a7ff; --violet-bg: #2e2247;
+    --green: #77d99a; --green-bg: #15301f;
+    --red: #ff9b9b; --red-bg: #3d1a1a;
   }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body { background: var(--bg); color: var(--texto); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-a { color: var(--acento); }
+body { background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); }
 button { font: inherit; color: inherit; }
 
-header.top { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--borde);
+header.top { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 16px; padding: 10px 20px; flex-wrap: wrap; }
-.marca { display: flex; flex-direction: column; min-width: 0; }
-.marca b { font-size: 16px; }
-.marca span { color: var(--suave); font-size: 12px; }
-nav.tabs { display: flex; gap: 4px; background: var(--panel-2); padding: 3px; border-radius: 9px; }
-nav.tabs button { border: 0; background: transparent; padding: 6px 14px; border-radius: 7px; cursor: pointer; color: var(--suave); }
-nav.tabs button.activa { background: var(--panel); color: var(--texto); box-shadow: var(--sombra); font-weight: 600; }
-.espacio { flex: 1; }
-.aviso { border: 0; cursor: pointer; background: var(--rojo-bg); color: var(--rojo); padding: 5px 12px; border-radius: 99px; font-weight: 600; }
-.vivo { color: var(--suave); font-size: 12px; white-space: nowrap; }
-.vivo i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--verde); margin-right: 6px; }
-.vivo.caido i { background: var(--rojo); }
+.brand { display: flex; flex-direction: column; min-width: 0; }
+.brand b { font-size: 16px; }
+.brand span { color: var(--muted); font-size: 12px; }
+nav.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 3px; border-radius: 9px; }
+nav.tabs button { border: 0; background: transparent; padding: 6px 14px; border-radius: 7px; cursor: pointer; color: var(--muted); }
+nav.tabs button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
+.spacer { flex: 1; }
+.alert { border: 0; cursor: pointer; background: var(--red-bg); color: var(--red); padding: 5px 12px; border-radius: 99px; font-weight: 600; }
+.live { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.live i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; }
+.live.down i { background: var(--red); }
 
 main { max-width: 1280px; margin: 0 auto; padding: 20px; }
-h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--suave); margin: 28px 0 10px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 28px 0 10px; }
 h2:first-child { margin-top: 4px; }
-.tarjeta { background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; box-shadow: var(--sombra); padding: 16px; }
-.fila { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.suave { color: var(--suave); }
-.id { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--suave); }
-.vacio { color: var(--suave); padding: 24px; text-align: center; border: 1px dashed var(--borde); border-radius: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 16px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.muted { color: var(--muted); }
+.id { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+.empty { color: var(--muted); padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: 12px; }
 
 .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-.c-gris { color: var(--gris); background: var(--gris-bg); }
-.c-azul { color: var(--azul); background: var(--azul-bg); }
-.c-ambar { color: var(--ambar); background: var(--ambar-bg); }
-.c-violeta { color: var(--violeta); background: var(--violeta-bg); }
-.c-verde { color: var(--verde); background: var(--verde-bg); }
-.c-rojo { color: var(--rojo); background: var(--rojo-bg); }
+.c-gray { color: var(--gray); background: var(--gray-bg); }
+.c-blue { color: var(--blue); background: var(--blue-bg); }
+.c-amber { color: var(--amber); background: var(--amber-bg); }
+.c-violet { color: var(--violet); background: var(--violet-bg); }
+.c-green { color: var(--green); background: var(--green-bg); }
+.c-red { color: var(--red); background: var(--red-bg); }
 
-.boton { border: 1px solid var(--borde); background: var(--panel); padding: 4px 10px; border-radius: 7px; cursor: pointer; font-size: 12px; text-decoration: none; color: var(--texto); }
-.boton:hover { border-color: var(--acento); color: var(--acento); }
-.boton.principal { background: var(--acento); color: #fff; border-color: var(--acento); }
+.button { border: 1px solid var(--border); background: var(--surface); padding: 4px 10px; border-radius: 7px; cursor: pointer; font-size: 12px; text-decoration: none; color: var(--text); }
+.button:hover { border-color: var(--accent); color: var(--accent); }
 
-/* Producto */
-.cabecera-proyecto { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
-.cabecera-proyecto p { margin: 4px 0 10px; }
-.hito { margin-top: 14px; }
-.hito-cab { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
-.hito-cab h3 { margin: 0; font-size: 17px; }
-.barra { height: 6px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
-.barra > div { height: 100%; background: var(--verde); }
-.rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; margin-top: 12px; }
-.func h4 { margin: 2px 0 8px; font-size: 15px; cursor: pointer; }
-.func h4:hover { color: var(--acento); }
-.func.espera { border-color: var(--rojo); }
+/* Product */
+.project-head { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+.project-head p { margin: 4px 0 10px; }
+.milestone { margin-top: 14px; }
+.milestone-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+.milestone-head h3 { margin: 0; font-size: 17px; }
+.bar { height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.bar > div { height: 100%; background: var(--green); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; margin-top: 12px; }
+.feature h4 { margin: 2px 0 8px; font-size: 15px; cursor: pointer; }
+.feature h4:hover { color: var(--accent); }
+.feature.waiting { border-color: var(--red); }
 .oks { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 4px; }
-.oks li { display: flex; gap: 8px; align-items: center; color: var(--suave); }
-.oks li.si { color: var(--texto); }
-.oks .marca-ok { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; border: 1.5px solid var(--borde); }
-.oks li.si .marca-ok { background: var(--verde); border-color: var(--verde); color: #fff; }
-.oks li.ahora .marca-ok { border-color: var(--rojo); color: var(--rojo); }
-.tabla { width: 100%; border-collapse: collapse; }
-.tabla td, .tabla th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borde); vertical-align: top; }
-.tabla th { font-size: 12px; color: var(--suave); font-weight: 600; }
-.tabla tr.clic { cursor: pointer; }
-.tabla tr.clic:hover td { background: var(--panel-2); }
+.oks li { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+.oks li.yes { color: var(--text); }
+.oks .tick { width: 18px; height: 18px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; border: 1.5px solid var(--border); }
+.oks li.yes .tick { background: var(--green); border-color: var(--green); color: #fff; }
+.oks li.now .tick { border-color: var(--red); color: var(--red); }
+.table { width: 100%; border-collapse: collapse; }
+.table td, .table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.table th { font-size: 12px; color: var(--muted); font-weight: 600; }
+.table tr.clickable { cursor: pointer; }
+.table tr.clickable:hover td { background: var(--surface-2); }
 
-/* Construcción */
-.atencion { border-color: var(--rojo); }
-.atencion + .atencion { margin-top: 10px; }
-.pregunta { background: var(--panel-2); border-radius: 8px; padding: 4px 14px; margin-top: 10px; }
-.dos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.lista-simple { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.lista-simple li { display: flex; gap: 8px; align-items: baseline; }
-.pulso { width: 8px; height: 8px; border-radius: 50%; background: var(--ambar); flex: none; animation: pulso 1.4s infinite; position: relative; top: -1px; }
-@keyframes pulso { 50% { opacity: .3; } }
+/* Construction */
+.attention { border-color: var(--red); }
+.attention + .attention { margin-top: 10px; }
+.question { background: var(--surface-2); border-radius: 8px; padding: 4px 14px; margin-top: 10px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.plain-list li { display: flex; gap: 8px; align-items: baseline; }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex: none; animation: pulse 1.4s infinite; position: relative; top: -1px; }
+@keyframes pulse { 50% { opacity: .3; } }
 .selector { display: flex; gap: 6px; flex-wrap: wrap; }
-.selector button { border: 1px solid var(--borde); background: var(--panel); padding: 4px 12px; border-radius: 99px; cursor: pointer; }
-.selector button.activa { border-color: var(--acento); color: var(--acento); font-weight: 600; }
-.progreso-funcs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
-.progreso-funcs .tarjeta { padding: 10px 12px; cursor: pointer; }
+.selector button { border: 1px solid var(--border); background: var(--surface); padding: 4px 12px; border-radius: 99px; cursor: pointer; }
+.selector button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.feature-progress { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.feature-progress .card { padding: 10px 12px; cursor: pointer; }
 .kanban { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 6px; }
-.columna { background: var(--panel-2); border-radius: 12px; padding: 10px; min-height: 120px; }
-.columna h5 { margin: 2px 4px 10px; font-size: 13px; display: flex; justify-content: space-between; }
-.tarea { background: var(--panel); border: 1px solid var(--borde); border-radius: 10px; padding: 10px; margin-bottom: 8px; cursor: pointer; box-shadow: var(--sombra); }
-.tarea:hover { border-color: var(--acento); }
-.tarea.trabajando { border-left: 3px solid var(--ambar); }
-.tarea.espera { border-left: 3px solid var(--rojo); }
-.tarea.bloq { border-left: 3px solid var(--rojo); background: var(--rojo-bg); }
-.tarea .titulo { font-weight: 600; margin: 2px 0 6px; }
-.tarea .meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--suave); align-items: center; }
+.column { background: var(--surface-2); border-radius: 12px; padding: 10px; min-height: 120px; }
+.column h5 { margin: 2px 4px 10px; font-size: 13px; display: flex; justify-content: space-between; }
+.task { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 8px; cursor: pointer; box-shadow: var(--shadow); }
+.task:hover { border-color: var(--accent); }
+.task.working { border-left: 3px solid var(--amber); }
+.task.waiting { border-left: 3px solid var(--red); }
+.task.blocked { border-left: 3px solid var(--red); background: var(--red-bg); }
+.task .title { font-weight: 600; margin: 2px 0 6px; }
+.task .meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--muted); align-items: center; }
 
-/* Lateral */
-.velo { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 9; }
-aside.lateral { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--panel); z-index: 10;
-  border-left: 1px solid var(--borde); display: flex; flex-direction: column; box-shadow: -8px 0 24px rgba(0,0,0,.12); }
-.lat-cab { padding: 14px 18px; border-bottom: 1px solid var(--borde); display: flex; gap: 10px; align-items: flex-start; }
-.lat-cab h3 { margin: 0; font-size: 17px; flex: 1; }
-.lat-tabs { display: flex; gap: 6px; padding: 10px 18px; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
-.lat-tabs .activa { border-color: var(--acento); color: var(--acento); font-weight: 600; }
-.lat-cuerpo { padding: 6px 22px 30px; overflow-y: auto; flex: 1; }
-.cerrar { border: 0; background: transparent; font-size: 22px; cursor: pointer; color: var(--suave); line-height: 1; }
+/* Side panel */
+.veil { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 9; }
+aside.side { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: var(--surface); z-index: 10;
+  border-left: 1px solid var(--border); display: flex; flex-direction: column; box-shadow: -8px 0 24px rgba(0,0,0,.12); }
+.side-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: flex-start; }
+.side-head h3 { margin: 0; font-size: 17px; flex: 1; }
+.side-tabs { display: flex; gap: 6px; padding: 10px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.side-tabs .active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.side-body { padding: 6px 22px 30px; overflow-y: auto; flex: 1; }
+.close { border: 0; background: transparent; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; }
 
-.md h1 { font-size: 20px; } .md h2 { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--texto); margin: 22px 0 8px; }
+.md h1 { font-size: 20px; } .md h2 { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--text); margin: 22px 0 8px; }
 .md h3 { font-size: 14px; }
 .md table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
-.md th, .md td { border: 1px solid var(--borde); padding: 6px 8px; text-align: left; vertical-align: top; }
-.md th { background: var(--panel-2); }
-.md code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
-.md pre { background: var(--panel-2); padding: 12px; border-radius: 8px; overflow-x: auto; }
+.md th, .md td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+.md th { background: var(--surface-2); }
+.md code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+.md pre { background: var(--surface-2); padding: 12px; border-radius: 8px; overflow-x: auto; }
 .md pre code { background: none; padding: 0; }
-.md blockquote { margin: 10px 0; padding: 4px 14px; border-left: 3px solid var(--borde); color: var(--suave); }
-pre.plano { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+.md blockquote { margin: 10px 0; padding: 4px 14px; border-left: 3px solid var(--border); color: var(--muted); }
+pre.plain { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, monospace; }
 
 @media (max-width: 760px) {
   main { padding: 16px; }
   header.top { padding: 10px 16px; }
-  .cabecera-proyecto, .dos { grid-template-columns: 1fr; }
+  .project-head, .two { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
 <header class="top">
-  <div class="marca"><b id="nombre">factory</b><span id="subtitulo">Panel de control</span></div>
+  <div class="brand"><b id="name">factory</b><span id="subtitle">Panel de control</span></div>
   <nav class="tabs">
-    <button data-vista="producto">Producto</button>
-    <button data-vista="construccion">Construcción</button>
+    <button data-view="product">Producto</button>
+    <button data-view="construction">Construcción</button>
   </nav>
-  <div class="espacio"></div>
-  <span id="hueco-aviso"></span>
-  <span class="vivo" id="vivo"><i></i>conectando…</span>
+  <div class="spacer"></div>
+  <span id="alert-slot"></span>
+  <span class="live" id="live"><i></i>conectando…</span>
 </header>
-<main id="vista"></main>
-<div id="hueco-lateral"></div>
+<main id="view"></main>
+<div id="side-slot"></div>
 
 <script>
-const FASE_FUNC = {
-  definida: ["En definición", "gris"], especificada: ["Especificación aprobada", "azul"],
-  en_construccion: ["En construcción", "ambar"], validada: ["Validada · falta tu OK", "violeta"],
-  aceptada: ["Aceptada", "verde"], aplazada: ["Aplazada", "gris"], descartada: ["Descartada", "gris"]
+// Code in English; labels shown to the user in Spanish.
+const FEATURE_PHASE = {
+  defined: ["En definición", "gray"], specified: ["Especificación aprobada", "blue"],
+  building: ["En construcción", "amber"], validated: ["Validada · falta tu OK", "violet"],
+  accepted: ["Aceptada", "green"], postponed: ["Aplazada", "gray"], discarded: ["Descartada", "gray"]
 };
-const FASE_HITO = { propuesto: ["Propuesto", "gris"], aprobado: ["En marcha", "ambar"], cerrado: ["Cerrado", "verde"] };
-const SIT = {
-  en_cola: ["En cola", "gris"], en_curso: ["Trabajando", "ambar"],
-  esperando_humano: ["Te espera", "rojo"], bloqueada: ["Bloqueada", "rojo"]
+const MILESTONE_PHASE = { proposed: ["Propuesto", "gray"], approved: ["En marcha", "amber"], closed: ["Cerrado", "green"] };
+const STATUS = {
+  queued: ["En cola", "gray"], in_progress: ["Trabajando", "amber"],
+  waiting_human: ["Te espera", "red"], blocked: ["Bloqueada", "red"]
 };
-const COLUMNAS = [["pendiente", "Pendiente"], ["desarrollo", "Desarrollo"], ["en_revision", "En revisión"], ["hecha", "Hecha"]];
-const NOMBRE_ART = {
-  vision: "Visión", roadmap: "Roadmap", arquitectura: "Arquitectura", spec: "Especificación",
-  reglas: "Reglas de negocio", maqueta: "Maqueta ↗", diseno: "Diseño técnico", validacion: "Validación",
-  revision: "Revisión", lote: "Lote"
+const KIND = { cross_cutting: ["transversal", "blue"], fix: ["corrección", "amber"], hotfix: ["hotfix", "amber"] };
+const COLUMNS = [["pending", "Pendiente"], ["development", "Desarrollo"], ["in_review", "En revisión"], ["done", "Hecha"]];
+const ARTIFACT_LABEL = {
+  vision: "Visión", roadmap: "Roadmap", architecture: "Arquitectura", spec: "Especificación",
+  rules: "Reglas de negocio", mockup: "Maqueta ↗", design: "Diseño técnico", validation: "Validación",
+  review: "Revisión", batch: "Lote"
 };
-const ORDEN_FUNC = ["definida", "especificada", "en_construccion", "validada", "aceptada"];
+const MODE_LABEL = {
+  discovery: "Descubrimiento", base: "Arquitectura base", approve_milestone_first: "Aprobar hito (con visión, roadmap y arquitectura)",
+  approve_milestone: "Aprobar hito", roadmap_review: "Revisar roadmap", open_release: "Abrir release",
+  milestone: "Plan técnico del hito", specify: "Especificar", mockup: "Maqueta", approve_spec: "Aprobar especificación",
+  feature: "Diseño técnico y tareas", fix: "Correcciones", feature_validation: "Validar funcionalidad",
+  implement: "Implementar", resume: "Retomar", hotfix: "Hotfix", task_review: "Revisar PR",
+  approve_merge: "Aprobar y fusionar PR", present_batch: "Lote de aceptación", close_milestone: "Cerrar hito"
+};
+const AGENT_LABEL = {
+  orchestrator: "orquestador", analyst: "analista", prototyper: "prototipador", architect: "arquitecto",
+  developer: "desarrollador", validator: "validador"
+};
+const PRIORITY_LABEL = { must: "imprescindible", should: "deseable", later: "más adelante" };
+const FEATURE_ORDER = ["defined", "specified", "building", "validated", "accepted"];
 
-let datos = null, firma = "", hitoSel = null, lateral = null;
-let vista = ["producto", "construccion"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "producto";
+let state = null, signature = "", selectedMilestone = null, side = null;
+let view = ["product", "construction"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "product";
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const md = t => window.marked ? marked.parse(t || "") : `<pre class="plano">${esc(t)}</pre>`;
+const md = t => window.marked ? marked.parse(t || "") : `<pre class="plain">${esc(t)}</pre>`;
 const chip = ([t, c]) => `<span class="chip c-${c}">${esc(t)}</span>`;
-const elems = tipo => datos.elementos.filter(e => e.meta.tipo === tipo);
-const porId = id => id === "proyecto" ? datos.proyecto : datos.elementos.find(e => e.meta.id === id);
-const seccion = (cuerpo, titulo) => {
-  const m = (cuerpo || "").match(new RegExp(`^## ${titulo}\\s*$([\\s\\S]*?)(?=^## |$(?![\\s\\S]))`, "m"));
+const itemsOf = type => state.items.filter(e => e.meta.type === type);
+const byId = id => id === "project" ? state.project : state.items.find(e => e.meta.id === id);
+const agentLabel = a => AGENT_LABEL[a] || a;
+const section = (body, title) => {
+  const m = (body || "").match(new RegExp(`^## ${title}\\s*$([\\s\\S]*?)(?=^## |$(?![\\s\\S]))`, "m"));
   return m ? m[1].trim() : "";
 };
 
-async function cargar() {
+async function load() {
   try {
-    const r = await fetch("/api/estado", { cache: "no-store" });
+    const r = await fetch("/api/state", { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
     const txt = await r.text();
-    $("#vivo").className = "vivo";
-    if (txt !== firma) {
-      firma = txt;
-      datos = JSON.parse(txt);
-      pintar();
+    $("#live").className = "live";
+    if (txt !== signature) {
+      signature = txt;
+      state = JSON.parse(txt);
+      render();
     }
-    $("#vivo").innerHTML = `<i></i>en vivo · ${esc(datos.generado.slice(11))}`;
+    $("#live").innerHTML = `<i></i>en vivo · ${esc(state.generated.slice(11))}`;
   } catch (e) {
-    $("#vivo").className = "vivo caido";
-    $("#vivo").innerHTML = "<i></i>sin conexión con factory panel";
+    $("#live").className = "live down";
+    $("#live").innerHTML = "<i></i>sin conexión con factory panel";
   }
 }
 
-function pintar() {
-  const p = datos.proyecto.meta;
-  document.title = `${p.nombre || "Proyecto"} · factory`;
-  $("#nombre").textContent = p.nombre || "Proyecto";
-  $("#subtitulo").textContent = p.descripcion || "Panel de control";
-  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("activa", b.dataset.vista === vista));
-  const pend = [datos.proyecto, ...datos.elementos].filter(e => ["esperando_humano", "bloqueada"].includes(e.meta.situacion));
-  $("#hueco-aviso").innerHTML = pend.length
-    ? `<button class="aviso" onclick="irA('construccion')">${pend.length} ${pend.length === 1 ? "cosa te espera" : "cosas te esperan"}</button>` : "";
-  $("#vista").innerHTML = vista === "producto" ? vistaProducto() : vistaConstruccion(pend);
-  if (lateral) abrirLateral(lateral.id, lateral.pestana, true);
+function render() {
+  const p = state.project.meta;
+  document.title = `${p.name || "Proyecto"} · factory`;
+  $("#name").textContent = p.name || "Proyecto";
+  $("#subtitle").textContent = p.description || "Panel de control";
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.view === view));
+  const pending = [state.project, ...state.items].filter(e => ["waiting_human", "blocked"].includes(e.meta.status));
+  $("#alert-slot").innerHTML = pending.length
+    ? `<button class="alert" onclick="goTo('construction')">${pending.length} ${pending.length === 1 ? "cosa te espera" : "cosas te esperan"}</button>` : "";
+  $("#view").innerHTML = view === "product" ? productView() : constructionView(pending);
+  if (side) openSide(side.id, side.tab, true);
 }
 
-function irA(v) { vista = v; location.hash = v; pintar(); }
-document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => irA(b.dataset.vista));
+function goTo(v) { view = v; location.hash = v; render(); }
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => goTo(b.dataset.view));
 
-function botonesArt(e, excluir = []) {
-  return Object.keys(e.artefactos || {}).filter(k => !excluir.includes(k)).map(k =>
-    k === "maqueta"
-      ? `<a class="boton" href="/artefacto/${esc(e.artefactos[k])}" target="_blank">${NOMBRE_ART[k]}</a>`
-      : `<button class="boton" onclick="event.stopPropagation(); abrirLateral('${esc(e.meta.id)}', '${k}')">${NOMBRE_ART[k] || k}</button>`
+function artifactButtons(e) {
+  return Object.keys(e.artifacts || {}).map(k =>
+    k === "mockup"
+      ? `<a class="button" href="/artifact/${esc(e.artifacts[k])}" target="_blank">${ARTIFACT_LABEL[k]}</a>`
+      : `<button class="button" onclick="event.stopPropagation(); openSide('${esc(e.meta.id)}', '${k}')">${ARTIFACT_LABEL[k] || k}</button>`
   ).join("");
 }
 
-/* ------------------------------------------------------------------ Producto */
-function vistaProducto() {
-  const pr = datos.proyecto, p = pr.meta;
-  const stack = seccion(pr.cuerpo, "Stack");
-  const pasos = [
-    ["Descubrimiento", p.descubrimiento === "hecho"],
-    ["Arquitectura base", p.arquitectura === "hecha"],
-  ];
+/* ------------------------------------------------------------------ Product */
+function productView() {
+  const pr = state.project, p = pr.meta;
+  const stack = section(pr.body, "Stack");
+  const steps = [["Descubrimiento", p.discovery === "done"], ["Arquitectura base", p.architecture === "done"]];
   let h = `<h2>Producto</h2>
-  <div class="tarjeta cabecera-proyecto">
+  <div class="card project-head">
     <div>
-      <div class="fila">${pasos.map(([t, ok]) => chip([`${ok ? "✓" : "○"} ${t}`, ok ? "verde" : "gris"])).join("")}
-        ${chip([p.interfaz ? `Interfaz: ${p.interfaz}` : "Interfaz sin definir", "gris"])}
-        ${chip([p.remoto === "github" ? "GitHub" : "Solo local", "gris"])}</div>
-      ${stack && !stack.startsWith("_") ? `<div class="md">${md(stack)}</div>` : `<p class="suave">El stack lo definirá el arquitecto en la arquitectura base.</p>`}
+      <div class="row">${steps.map(([t, ok]) => chip([`${ok ? "✓" : "○"} ${t}`, ok ? "green" : "gray"])).join("")}
+        ${chip([p.interface ? `Interfaz: ${p.interface}` : "Interfaz sin definir", "gray"])}
+        ${chip([p.remote === "github" ? "GitHub" : "Solo local", "gray"])}
+        ${p.language ? chip([`Idioma: ${p.language}`, "gray"]) : ""}</div>
+      ${stack && !stack.startsWith("_") ? `<div class="md">${md(stack)}</div>` : `<p class="muted">El stack lo definirá el arquitecto en la arquitectura base.</p>`}
     </div>
-    <div class="fila">${botonesArt(pr)}<button class="boton" onclick="abrirLateral('proyecto')">Perfil</button></div>
+    <div class="row">${artifactButtons(pr)}<button class="button" onclick="openSide('project')">Perfil</button></div>
   </div>`;
 
-  const hitos = elems("hito");
-  if (!hitos.length) {
-    h += `<h2>Hitos</h2><div class="vacio">Aún no hay hitos. Saldrán del descubrimiento.</div>`;
-  }
-  for (const hi of hitos) {
-    const fs = elems("func").filter(f => f.meta.hito === hi.meta.id);
-    const vivas = fs.filter(f => !["aplazada", "descartada"].includes(f.meta.fase));
-    const ok = vivas.filter(f => f.meta.fase === "aceptada").length;
-    h += `<div class="hito">
-      <h2>${esc(hi.meta.id)} · hito</h2>
-      <div class="hito-cab"><h3>${esc(hi.meta.titulo)}</h3>${chip(FASE_HITO[hi.meta.fase] || [hi.meta.fase, "gris"])}
-        ${hi.meta.situacion === "esperando_humano" ? chip(["Te espera: " + hi.meta.motivo, "rojo"]) : ""}
-        <span class="espacio"></span>${botonesArt(hi)}
-        <button class="boton" onclick="abrirLateral('${hi.meta.id}')">Ficha</button></div>
-      <div class="suave">Al terminar se puede: ${esc(hi.meta.objetivo || "—")}</div>
-      <div class="fila" style="margin-top:8px"><div class="barra" style="flex:1"><div style="width:${vivas.length ? ok / vivas.length * 100 : 0}%"></div></div>
-        <span class="suave">${ok}/${vivas.length} aceptadas</span></div>
-      <div class="rejilla">${fs.map(tarjetaFunc).join("") || `<div class="vacio">Sin funcionalidades.</div>`}</div>
+  const milestones = itemsOf("milestone");
+  if (!milestones.length) h += `<h2>Hitos</h2><div class="empty">Aún no hay hitos. Saldrán del descubrimiento.</div>`;
+  for (const m of milestones) {
+    const fs = itemsOf("feature").filter(f => f.meta.milestone === m.meta.id);
+    const alive = fs.filter(f => !["postponed", "discarded"].includes(f.meta.phase));
+    const accepted = alive.filter(f => f.meta.phase === "accepted").length;
+    h += `<div class="milestone">
+      <h2>${esc(m.meta.id)} · hito</h2>
+      <div class="milestone-head"><h3>${esc(m.meta.title)}</h3>${chip(MILESTONE_PHASE[m.meta.phase] || [m.meta.phase, "gray"])}
+        ${m.meta.status === "waiting_human" ? chip(["Te espera: " + m.meta.reason, "red"]) : ""}
+        <span class="spacer"></span>${artifactButtons(m)}
+        <button class="button" onclick="openSide('${m.meta.id}')">Ficha</button></div>
+      <div class="muted">Al terminar se puede: ${esc(m.meta.goal || "—")}</div>
+      <div class="row" style="margin-top:8px"><div class="bar" style="flex:1"><div style="width:${alive.length ? accepted / alive.length * 100 : 0}%"></div></div>
+        <span class="muted">${accepted}/${alive.length} aceptadas</span></div>
+      <div class="grid">${fs.map(featureCard).join("") || `<div class="empty">Sin funcionalidades.</div>`}</div>
     </div>`;
   }
 
   h += `<h2>Decisiones</h2>`;
-  h += datos.decisiones.length ? `<div class="tarjeta" style="padding:0"><table class="tabla">
+  h += state.decisions.length ? `<div class="card" style="padding:0"><table class="table">
     <tr><th>ID</th><th>Decisión</th><th>Sobre</th><th>Fecha</th></tr>
-    ${[...datos.decisiones].reverse().map(d => `<tr class="clic" onclick="abrirDecision('${esc(d.meta.id)}')">
-      <td class="id">${esc(d.meta.id)}</td><td>${esc(d.meta.titulo)}</td><td class="id">${esc(d.meta.ref || "—")}</td><td class="suave">${esc(d.meta.fecha)}</td></tr>`).join("")}
-  </table></div>` : `<div class="vacio">Todavía no hay decisiones registradas.</div>`;
+    ${[...state.decisions].reverse().map(d => `<tr class="clickable" onclick="openDecision('${esc(d.meta.id)}')">
+      <td class="id">${esc(d.meta.id)}</td><td>${esc(d.meta.title)}</td><td class="id">${esc(d.meta.ref || "—")}</td><td class="muted">${esc(d.meta.date)}</td></tr>`).join("")}
+  </table></div>` : `<div class="empty">Todavía no hay decisiones registradas.</div>`;
   return h;
 }
 
-function tarjetaFunc(f) {
-  const m = f.meta, i = ORDEN_FUNC.indexOf(m.fase);
-  const espera = m.situacion === "esperando_humano";
+function featureCard(f) {
+  const m = f.meta, i = FEATURE_ORDER.indexOf(m.phase);
+  const waiting = m.status === "waiting_human";
   const oks = [
-    ["Especificación aprobada", i >= 1, m.fase === "definida" && espera],
+    ["Especificación aprobada", i >= 1, m.phase === "defined" && waiting],
     ["Construida y validada", i >= 3, false],
-    ["Aceptada por ti", i >= 4, m.fase === "validada" && espera],
+    ["Aceptada por ti", i >= 4, m.phase === "validated" && waiting],
   ];
-  return `<div class="tarjeta func ${espera ? "espera" : ""}">
-    <div class="fila"><span class="id">${esc(m.id)}</span>${chip(FASE_FUNC[m.fase] || [m.fase, "gris"])}
-      ${m.prioridad && m.prioridad !== "imprescindible" ? chip([m.prioridad.replace("_", " "), "gris"]) : ""}</div>
-    <h4 onclick="abrirLateral('${esc(m.id)}')">${esc(m.titulo)}</h4>
-    ${espera ? `<div>${chip(["Te espera: " + (m.motivo || ""), "rojo"])}</div>` : ""}
-    <ul class="oks">${oks.map(([t, si, ahora]) => `<li class="${si ? "si" : ""} ${ahora ? "ahora" : ""}"><span class="marca-ok">${si ? "✓" : ahora ? "!" : ""}</span>${t}</li>`).join("")}</ul>
-    <div class="fila">${f.criterios != null ? `<span class="suave">${f.criterios} criterios de aceptación</span>` : `<span class="suave">Sin especificar todavía</span>`}</div>
-    <div class="fila" style="margin-top:10px">${botonesArt(f)}</div>
+  return `<div class="card feature ${waiting ? "waiting" : ""}">
+    <div class="row"><span class="id">${esc(m.id)}</span>${chip(FEATURE_PHASE[m.phase] || [m.phase, "gray"])}
+      ${m.priority && m.priority !== "must" ? chip([PRIORITY_LABEL[m.priority] || m.priority, "gray"]) : ""}</div>
+    <h4 onclick="openSide('${esc(m.id)}')">${esc(m.title)}</h4>
+    ${waiting ? `<div>${chip(["Te espera: " + (m.reason || ""), "red"])}</div>` : ""}
+    <ul class="oks">${oks.map(([t, yes, now]) => `<li class="${yes ? "yes" : ""} ${now ? "now" : ""}"><span class="tick">${yes ? "✓" : now ? "!" : ""}</span>${t}</li>`).join("")}</ul>
+    <div class="row">${f.criteria != null ? `<span class="muted">${f.criteria} criterios de aceptación</span>` : `<span class="muted">Sin especificar todavía</span>`}</div>
+    <div class="row" style="margin-top:10px">${artifactButtons(f)}</div>
   </div>`;
 }
 
-/* ------------------------------------------------------------------ Construcción */
-function vistaConstruccion(pend) {
+/* ------------------------------------------------------------------ Construction */
+function constructionView(pending) {
   let h = `<h2>Te espera</h2>`;
-  h += pend.length ? pend.map(e => {
-    const m = e.meta, preg = seccion(e.cuerpo, "Preguntas pendientes");
-    return `<div class="tarjeta atencion">
-      <div class="fila"><span class="id">${esc(m.id)}</span>${chip(SIT[m.situacion])}<b>${esc(m.titulo || m.nombre)}</b>
-        <span class="espacio"></span>${botonesArt(e)}<button class="boton" onclick="abrirLateral('${esc(m.id)}')">Ficha</button></div>
-      <div style="margin-top:6px">${esc(m.motivo || "")}</div>
-      ${preg ? `<div class="pregunta md">${md(preg)}</div>` : ""}
-      <div class="suave" style="margin-top:8px">Responde en la terminal, al orquestador.</div>
+  h += pending.length ? pending.map(e => {
+    const m = e.meta, questions = section(e.body, "Pending questions");
+    return `<div class="card attention">
+      <div class="row"><span class="id">${esc(m.id)}</span>${chip(STATUS[m.status])}<b>${esc(m.title || m.name)}</b>
+        <span class="spacer"></span>${artifactButtons(e)}<button class="button" onclick="openSide('${esc(m.id)}')">Ficha</button></div>
+      <div style="margin-top:6px">${esc(m.reason || "")}</div>
+      ${questions ? `<div class="question md">${md(questions)}</div>` : ""}
+      <div class="muted" style="margin-top:8px">Responde en la terminal, al orquestador.</div>
     </div>`;
-  }).join("") : `<div class="vacio">Nada pendiente de ti.</div>`;
+  }).join("") : `<div class="empty">Nada pendiente de ti.</div>`;
 
-  const curso = [datos.proyecto, ...datos.elementos].filter(e => e.meta.situacion === "en_curso");
-  h += `<div class="dos"><div><h2>Trabajando ahora</h2><div class="tarjeta">${curso.length
-    ? `<ul class="lista-simple">${curso.map(e => `<li><span class="pulso"></span><span class="id">${esc(e.meta.id)}</span>
-        <span>${esc(e.meta.titulo || "Proyecto")}${e.meta.agente ? ` <span class="suave">· ${esc(e.meta.agente)}</span>` : ""}</span></li>`).join("")}</ul>`
-    : `<span class="suave">Ningún agente trabajando.</span>`}</div></div>
-    <div><h2>Próximos pasos</h2><div class="tarjeta">${datos.acciones.length
-    ? `<ul class="lista-simple">${datos.acciones.map(a => `<li><span class="id">${esc(a.id)}</span>
-        <span>${esc(a.texto)} <span class="suave">· ${esc(a.quien.replace("lanzar ", ""))}</span></span></li>`).join("")}</ul>`
-    : `<span class="suave">Nada más hasta que respondas o terminen los agentes.</span>`}</div></div></div>`;
+  const working = [state.project, ...state.items].filter(e => e.meta.status === "in_progress");
+  h += `<div class="two"><div><h2>Trabajando ahora</h2><div class="card">${working.length
+    ? `<ul class="plain-list">${working.map(e => `<li><span class="pulse"></span><span class="id">${esc(e.meta.id)}</span>
+        <span>${esc(e.meta.title || "Proyecto")}${e.meta.agent ? ` <span class="muted">· ${esc(agentLabel(e.meta.agent))}</span>` : ""}</span></li>`).join("")}</ul>`
+    : `<span class="muted">Ningún agente trabajando.</span>`}</div></div>
+    <div><h2>Próximos pasos</h2><div class="card">${state.actions.length
+    ? `<ul class="plain-list">${state.actions.map(a => `<li><span class="id">${esc(a.id)}</span>
+        <span>${esc(MODE_LABEL[a.mode] || a.mode)} <span class="muted">· ${esc(agentLabel(a.who.replace("launch ", "")))}</span></span></li>`).join("")}</ul>`
+    : `<span class="muted">Nada más hasta que respondas o terminen los agentes.</span>`}</div></div></div>`;
 
-  const hitos = elems("hito");
-  const activo = hitos.find(x => x.meta.fase === "aprobado") || hitos[hitos.length - 1];
-  if (!hitoSel || !porId(hitoSel)) hitoSel = activo ? activo.meta.id : null;
-  const hotfix = elems("tarea").filter(t => t.meta.clase === "hotfix");
-  if (!hitoSel && !hotfix.length) return h + `<h2>Tareas</h2><div class="vacio">Aún no hay hitos ni tareas.</div>`;
+  const milestones = itemsOf("milestone");
+  const active = milestones.find(x => x.meta.phase === "approved") || milestones[milestones.length - 1];
+  if (!selectedMilestone || !byId(selectedMilestone)) selectedMilestone = active ? active.meta.id : null;
+  const hotfixes = itemsOf("task").filter(t => t.meta.kind === "hotfix");
+  if (!selectedMilestone && !hotfixes.length) return h + `<h2>Tareas</h2><div class="empty">Aún no hay hitos ni tareas.</div>`;
 
-  if (hitoSel) {
-    const hi = porId(hitoSel);
-    h += `<h2>Hito</h2><div class="fila">
-      <div class="selector">${hitos.map(x => `<button class="${x.meta.id === hitoSel ? "activa" : ""}" onclick="hitoSel='${x.meta.id}'; pintar()">${esc(x.meta.id)} · ${esc(x.meta.titulo)}</button>`).join("")}</div>
-      <span class="espacio"></span>${chip(FASE_HITO[hi.meta.fase] || [hi.meta.fase, "gris"])}
-      ${hi.meta.rama ? `<span class="id">${esc(hi.meta.rama)}</span>` : ""}</div>`;
+  if (selectedMilestone) {
+    const ms = byId(selectedMilestone);
+    h += `<h2>Hito</h2><div class="row">
+      <div class="selector">${milestones.map(x => `<button class="${x.meta.id === selectedMilestone ? "active" : ""}" onclick="selectedMilestone='${x.meta.id}'; render()">${esc(x.meta.id)} · ${esc(x.meta.title)}</button>`).join("")}</div>
+      <span class="spacer"></span>${chip(MILESTONE_PHASE[ms.meta.phase] || [ms.meta.phase, "gray"])}
+      ${ms.meta.branch ? `<span class="id">${esc(ms.meta.branch)}</span>` : ""}</div>`;
 
-    const tareas = elems("tarea").filter(t => t.meta.hito === hitoSel && t.meta.clase !== "hotfix");
-    const fs = elems("func").filter(f => f.meta.hito === hitoSel);
+    const tasks = itemsOf("task").filter(t => t.meta.milestone === selectedMilestone && t.meta.kind !== "hotfix");
+    const fs = itemsOf("feature").filter(f => f.meta.milestone === selectedMilestone);
     h += `<h2>Funcionalidades</h2>`;
-    h += fs.length ? `<div class="progreso-funcs">${fs.map(f => {
-      const ts = tareas.filter(t => t.meta.padre === f.meta.id && t.meta.fase !== "descartada");
-      const hechas = ts.filter(t => t.meta.fase === "hecha").length;
-      return `<div class="tarjeta" onclick="abrirLateral('${esc(f.meta.id)}')">
-        <div class="fila"><span class="id">${esc(f.meta.id)}</span>${chip(FASE_FUNC[f.meta.fase] || [f.meta.fase, "gris"])}</div>
-        <div style="margin:4px 0 6px;font-weight:600">${esc(f.meta.titulo)}</div>
-        <div class="fila"><div class="barra" style="flex:1"><div style="width:${ts.length ? hechas / ts.length * 100 : 0}%"></div></div>
-        <span class="suave">${ts.length ? `${hechas}/${ts.length} tareas` : "sin tareas"}</span></div></div>`;
-    }).join("")}</div>` : `<div class="vacio">Sin funcionalidades en este hito.</div>`;
+    h += fs.length ? `<div class="feature-progress">${fs.map(f => {
+      const ts = tasks.filter(t => t.meta.parent === f.meta.id && t.meta.phase !== "discarded");
+      const done = ts.filter(t => t.meta.phase === "done").length;
+      return `<div class="card" onclick="openSide('${esc(f.meta.id)}')">
+        <div class="row"><span class="id">${esc(f.meta.id)}</span>${chip(FEATURE_PHASE[f.meta.phase] || [f.meta.phase, "gray"])}</div>
+        <div style="margin:4px 0 6px;font-weight:600">${esc(f.meta.title)}</div>
+        <div class="row"><div class="bar" style="flex:1"><div style="width:${ts.length ? done / ts.length * 100 : 0}%"></div></div>
+        <span class="muted">${ts.length ? `${done}/${ts.length} tareas` : "sin tareas"}</span></div></div>`;
+    }).join("")}</div>` : `<div class="empty">Sin funcionalidades en este hito.</div>`;
 
-    h += `<h2>Tareas</h2>` + kanban(tareas);
+    h += `<h2>Tareas</h2>` + kanban(tasks);
   }
-  if (hotfix.length) h += `<h2>Hotfix</h2>` + kanban(hotfix);
+  if (hotfixes.length) h += `<h2>Hotfix</h2>` + kanban(hotfixes);
   return h;
 }
 
-function kanban(tareas) {
-  const vivas = tareas.filter(t => t.meta.fase !== "descartada");
-  return `<div class="kanban">${COLUMNAS.map(([fase, titulo]) => {
-    const ts = vivas.filter(t => t.meta.fase === fase);
-    return `<div class="columna"><h5>${titulo}<span class="suave">${ts.length}</span></h5>${ts.map(tarjetaTarea).join("")}</div>`;
+function kanban(tasks) {
+  const alive = tasks.filter(t => t.meta.phase !== "discarded");
+  return `<div class="kanban">${COLUMNS.map(([phase, title]) => {
+    const ts = alive.filter(t => t.meta.phase === phase);
+    return `<div class="column"><h5>${title}<span class="muted">${ts.length}</span></h5>${ts.map(taskCard).join("")}</div>`;
   }).join("")}</div>`;
 }
 
-function tarjetaTarea(t) {
+function taskCard(t) {
   const m = t.meta;
-  const clase = m.situacion === "en_curso" ? "trabajando" : m.situacion === "esperando_humano" ? "espera" : m.situacion === "bloqueada" ? "bloq" : "";
-  const pr = m.pr ? (datos.url_prs ? `<a href="${esc(datos.url_prs + m.pr)}" target="_blank" onclick="event.stopPropagation()">PR #${esc(m.pr)}</a>` : `PR #${esc(m.pr)}`) : "";
-  const rev = m.revision === "ok" ? chip(["Revisión OK", "verde"]) : m.revision === "ko" ? chip(["Revisión KO", "rojo"]) : "";
-  return `<div class="tarea ${clase}" onclick="abrirLateral('${esc(m.id)}')">
-    <div class="fila"><span class="id">${esc(m.id)}</span>
-      ${m.clase && m.clase !== "tecnica" ? chip([m.clase, m.clase === "correccion" || m.clase === "hotfix" ? "ambar" : "azul"]) : ""}
-      ${m.situacion && m.situacion !== "en_cola" ? chip(SIT[m.situacion] || [m.situacion, "gris"]) : ""}</div>
-    <div class="titulo">${esc(m.titulo)}</div>
-    ${m.motivo ? `<div class="suave" style="font-size:12px;margin-bottom:6px">${esc(m.motivo)}</div>` : ""}
+  const cls = { in_progress: "working", waiting_human: "waiting", blocked: "blocked" }[m.status] || "";
+  const pr = m.pr ? (state.prs_url ? `<a href="${esc(state.prs_url + m.pr)}" target="_blank" onclick="event.stopPropagation()">PR #${esc(m.pr)}</a>` : `PR #${esc(m.pr)}`) : "";
+  const review = m.review === "ok" ? chip(["Revisión OK", "green"]) : m.review === "ko" ? chip(["Revisión KO", "red"]) : "";
+  return `<div class="task ${cls}" onclick="openSide('${esc(m.id)}')">
+    <div class="row"><span class="id">${esc(m.id)}</span>
+      ${KIND[m.kind] ? chip(KIND[m.kind]) : ""}
+      ${m.status && m.status !== "queued" ? chip(STATUS[m.status] || [m.status, "gray"]) : ""}</div>
+    <div class="title">${esc(m.title)}</div>
+    ${m.reason ? `<div class="muted" style="font-size:12px;margin-bottom:6px">${esc(m.reason)}</div>` : ""}
     <div class="meta">
-      ${m.padre && m.padre !== "-" ? `<span class="id">${esc(m.padre)}</span>` : ""}
-      ${m.paquete ? `<span>${esc(m.paquete)}</span>` : ""}
-      ${m.agente ? `<span>· ${esc(m.agente)}</span>` : ""}
-      ${Number(m.intentos) > 0 ? chip([`intento ${m.intentos}/${datos.max_intentos}`, Number(m.intentos) >= datos.max_intentos ? "rojo" : "gris"]) : ""}
-      ${rev} ${pr}
-      ${(m.depende_de || []).length && m.fase === "pendiente" ? `<span>depende de ${esc(m.depende_de.join(", "))}</span>` : ""}
+      ${m.parent && m.parent !== "-" ? `<span class="id">${esc(m.parent)}</span>` : ""}
+      ${m.package ? `<span>${esc(m.package)}</span>` : ""}
+      ${m.agent ? `<span>· ${esc(agentLabel(m.agent))}</span>` : ""}
+      ${Number(m.attempts) > 0 ? chip([`intento ${m.attempts}/${state.max_attempts}`, Number(m.attempts) >= state.max_attempts ? "red" : "gray"]) : ""}
+      ${review} ${pr}
+      ${(m.depends_on || []).length && m.phase === "pending" ? `<span>depende de ${esc(m.depends_on.join(", "))}</span>` : ""}
     </div>
   </div>`;
 }
 
-/* ------------------------------------------------------------------ Lateral */
-async function abrirLateral(id, pestana = "ficha", refresco = false) {
-  const e = porId(id);
-  if (!e) { cerrarLateral(); return; }
-  if (pestana === "maqueta") { window.open(`/artefacto/${e.artefactos.maqueta}`, "_blank"); return; }
-  lateral = { id, pestana };
+/* ------------------------------------------------------------------ Side panel */
+async function openSide(id, tab = "card", refresh = false) {
+  const e = byId(id);
+  if (!e) { closeSide(); return; }
+  if (tab === "mockup") { window.open(`/artifact/${e.artifacts.mockup}`, "_blank"); return; }
+  side = { id, tab };
   const m = e.meta;
-  const tabs = [["ficha", "Ficha"], ...Object.keys(e.artefactos || {}).map(k => [k, NOMBRE_ART[k] || k])];
-  let cuerpo;
-  if (pestana === "ficha") {
-    cuerpo = fichaElemento(e);
+  const tabs = [["card", "Ficha"], ...Object.keys(e.artifacts || {}).map(k => [k, ARTIFACT_LABEL[k] || k])];
+  let body;
+  if (tab === "card") {
+    body = itemCard(e);
   } else {
     try {
-      const r = await fetch(`/artefacto/${e.artefactos[pestana]}`, { cache: "no-store" });
-      cuerpo = `<div class="md">${md(await r.text())}</div>`;
-    } catch (err) { cuerpo = `<div class="vacio">No se pudo cargar.</div>`; }
+      const r = await fetch(`/artifact/${e.artifacts[tab]}`, { cache: "no-store" });
+      body = `<div class="md">${md(await r.text())}</div>`;
+    } catch (err) { body = `<div class="empty">No se pudo cargar.</div>`; }
   }
-  if (refresco && $(".lat-cuerpo")) {
-    const scroll = $(".lat-cuerpo").scrollTop;
-    $("#hueco-lateral").innerHTML = htmlLateral(m, tabs, pestana, cuerpo);
-    $(".lat-cuerpo").scrollTop = scroll;
-  } else {
-    $("#hueco-lateral").innerHTML = htmlLateral(m, tabs, pestana, cuerpo);
-  }
+  const scroll = refresh && $(".side-body") ? $(".side-body").scrollTop : 0;
+  $("#side-slot").innerHTML = sideHtml(m, tabs, tab, body);
+  if (refresh) $(".side-body").scrollTop = scroll;
 }
 
-function htmlLateral(m, tabs, pestana, cuerpo) {
+function sideHtml(m, tabs, tab, body) {
   const id = m.id;
-  return `<div class="velo" onclick="cerrarLateral()"></div>
-  <aside class="lateral">
-    <div class="lat-cab"><div style="flex:1"><div class="fila"><span class="id">${esc(id)}</span>
-      ${m.fase ? chip((m.tipo === "func" ? FASE_FUNC : m.tipo === "hito" ? FASE_HITO : {})[m.fase] || [m.fase, "gris"]) : ""}
-      ${m.situacion ? chip(SIT[m.situacion] || [m.situacion, "gris"]) : ""}</div>
-      <h3>${esc(m.titulo || m.nombre || id)}</h3></div>
-      <button class="cerrar" onclick="cerrarLateral()" aria-label="Cerrar">×</button></div>
-    <div class="lat-tabs">${tabs.map(([k, t]) => `<button class="boton ${k === pestana ? "activa" : ""}" onclick="abrirLateral('${esc(id)}', '${k}')">${t}</button>`).join("")}</div>
-    <div class="lat-cuerpo">${cuerpo}</div>
+  const phases = m.type === "feature" ? FEATURE_PHASE : m.type === "milestone" ? MILESTONE_PHASE : {};
+  return `<div class="veil" onclick="closeSide()"></div>
+  <aside class="side">
+    <div class="side-head"><div style="flex:1"><div class="row"><span class="id">${esc(id)}</span>
+      ${m.phase ? chip(phases[m.phase] || [m.phase, "gray"]) : ""}
+      ${m.status ? chip(STATUS[m.status] || [m.status, "gray"]) : ""}</div>
+      <h3>${esc(m.title || m.name || id)}</h3></div>
+      <button class="close" onclick="closeSide()" aria-label="Cerrar">×</button></div>
+    <div class="side-tabs">${tabs.map(([k, t]) => `<button class="button ${k === tab ? "active" : ""}" onclick="openSide('${esc(id)}', '${k}')">${t}</button>`).join("")}</div>
+    <div class="side-body">${body}</div>
   </aside>`;
 }
 
-function fichaElemento(e) {
+function itemCard(e) {
   const m = e.meta;
-  const campos = Object.entries(m).filter(([k, v]) => !["id", "tipo", "titulo", "nombre"].includes(k) && v !== "" && !(Array.isArray(v) && !v.length));
-  let h = `<table class="tabla" style="margin-top:12px">${campos.map(([k, v]) => `<tr><th style="width:150px">${esc(k)}</th><td>${
-    k === "pr" && datos.url_prs ? `<a href="${esc(datos.url_prs + v)}" target="_blank">#${esc(v)}</a>` : esc(Array.isArray(v) ? v.join(", ") : v)}</td></tr>`).join("")}</table>`;
-  return h + `<div class="md">${md(e.cuerpo.replace(/^\s*# .*\n/, ""))}</div>`;
+  const fields = Object.entries(m).filter(([k, v]) => !["id", "type", "title", "name"].includes(k) && v !== "" && !(Array.isArray(v) && !v.length));
+  const h = `<table class="table" style="margin-top:12px">${fields.map(([k, v]) => `<tr><th style="width:150px">${esc(k)}</th><td>${
+    k === "pr" && state.prs_url ? `<a href="${esc(state.prs_url + v)}" target="_blank">#${esc(v)}</a>` : esc(Array.isArray(v) ? v.join(", ") : v)}</td></tr>`).join("")}</table>`;
+  return h + `<div class="md">${md(e.body.replace(/^\s*# .*\n/, ""))}</div>`;
 }
 
-function abrirDecision(id) {
-  const d = datos.decisiones.find(x => x.meta.id === id);
-  lateral = null;
-  $("#hueco-lateral").innerHTML = htmlLateral({ id, titulo: d.meta.titulo }, [], "", `<p class="suave">Sobre ${esc(d.meta.ref || "—")} · ${esc(d.meta.fecha)}</p><div class="md">${md(d.cuerpo.replace(/^\s*# .*\n/, ""))}</div>`);
+function openDecision(id) {
+  const d = state.decisions.find(x => x.meta.id === id);
+  side = null;
+  $("#side-slot").innerHTML = sideHtml({ id, title: d.meta.title }, [], "", `<p class="muted">Sobre ${esc(d.meta.ref || "—")} · ${esc(d.meta.date)}</p><div class="md">${md(d.body.replace(/^\s*# .*\n/, ""))}</div>`);
 }
 
-function cerrarLateral() { lateral = null; $("#hueco-lateral").innerHTML = ""; }
-document.addEventListener("keydown", ev => { if (ev.key === "Escape") cerrarLateral(); });
+function closeSide() { side = null; $("#side-slot").innerHTML = ""; }
+document.addEventListener("keydown", ev => { if (ev.key === "Escape") closeSide(); });
 
-cargar();
-setInterval(cargar, 2500);
+load();
+setInterval(load, 2500);
 </script>
 </body>
 </html>

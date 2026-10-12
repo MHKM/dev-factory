@@ -21,7 +21,7 @@
 <Servicios de terceros, cómo se usan, credenciales necesarias (nunca en el repo).>
 
 ## Estrategia de pruebas
-<Tipos de test, herramienta, cómo se trazan con los criterios de aceptación (p. ej. el nombre del test incluye CA-F001-01).>
+<Tipos de test, herramienta, cómo se trazan con los criterios de aceptación (p. ej. el nombre del test incluye AC-F001-01).>
 
 ## Entornos y despliegue
 <Local, pruebas, producción. Quién despliega (nunca un agente).>

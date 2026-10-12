@@ -1,4 +1,4 @@
-# <F### o H##> · <título> — Diseño técnico
+# <F### o M##> · <título> — Diseño técnico
 
 ## Enfoque
 <Cómo se resuelve, en pocas líneas, dentro de la arquitectura base.>
@@ -22,7 +22,7 @@
 ## Trazabilidad
 | Criterio | Cómo se prueba | Tarea |
 |---|---|---|
-| CA-F###-01 | <tipo de test y qué comprueba> | T### |
+| AC-F###-01 | <tipo de test y qué comprueba> | T### |
 
 ## Decisiones
 - <decisión técnica> — <motivo>. (D### si hubo consulta previa)

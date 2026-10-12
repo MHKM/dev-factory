@@ -5,7 +5,7 @@
 ## Criterios de aceptación
 | Criterio | Resultado | Evidencia |
 |---|---|---|
-| CA-F###-01 | ✅/❌ | <test que lo cubre, o comprobación manual hecha y cómo> |
+| AC-F###-01 | ✅/❌ | <test que lo cubre, o comprobación manual hecha y cómo> |
 
 ## Problemas
 1. <criterio afectado, qué ocurre, qué debería ocurrir>

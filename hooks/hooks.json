@@ -1,5 +1,5 @@
 {
-  "description": "Guardia de factory: protege la rama principal y release/* y restringe el cambio de rama al desarrollador",
+  "description": "factory guard: protects the main branch and release/* and restricts branch switching to the developer",
   "hooks": {
     "PreToolUse": [
       {
@@ -8,7 +8,7 @@
           {
             "type": "command",
             "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/guardia.py"],
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/guard.py"],
             "timeout": 10
           }
         ]

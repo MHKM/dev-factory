@@ -1,11 +1,11 @@
-# H## · <título> — Lote de aceptación
+# M## · <título> — Lote de aceptación
 
 **Release:** <rama> · **Fecha:** <fecha>
 
 ## Qué contiene
 | Funcionalidad | Validación | Resumen |
 |---|---|---|
-| F### <título> | OK (validacion.md) | <qué hace en una línea> |
+| F### <título> | OK (validation.md) | <qué hace en una línea> |
 
 **Base técnica:** <tareas transversales hechas, en una línea cada una>
 
