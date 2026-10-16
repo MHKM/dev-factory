@@ -1089,6 +1089,92 @@ def _prs_url(root: Path) -> str:
     return f"https://github.com/{m.group(1)}/pull/" if m else ""
 
 
+# --------------------------------------------------------------------------- preview
+
+PREVIEW_SKIP = {".git", ".factory", "node_modules", "__pycache__"}
+FETCH_EVERY_SECONDS = 60
+_last_fetch = {"at": 0.0}
+
+
+def _fresh_remote(root: Path) -> None:
+    """With a GitHub remote, refresh origin/* at most once a minute so previews show merges."""
+    import time
+    if time.time() - _last_fetch["at"] < FETCH_EVERY_SECONDS:
+        return
+    _last_fetch["at"] = time.time()
+    git("fetch", "--quiet", "origin", cwd=root, check=False)
+
+
+def _live_signature(base: Path) -> str:
+    """Latest change in the working tree, so the panel can reload the live preview."""
+    latest, count = 0.0, 0
+    for path in base.rglob("*"):
+        if any(part in PREVIEW_SKIP for part in path.relative_to(base).parts):
+            continue
+        try:
+            latest = max(latest, path.stat().st_mtime)
+            count += 1
+        except OSError:
+            pass
+    return f"{latest:.3f}-{count}"
+
+
+def previews(root: Path) -> list:
+    """Sources the panel can preview: live working tree, release, main branch and task branches."""
+    p = project(root)
+    sub = str(p["preview_root"] or "").strip("/")
+    out = [{"key": "live", "kind": "live", "ref": "",
+            "signature": _live_signature(root / sub if sub else root)}]
+
+    remote = p["remote"] == "github"
+    if remote:
+        _fresh_remote(root)
+
+    def add(kind: str, ref: str, item: str = "", title: str = "") -> None:
+        # With GitHub, merges happen there: prefer the remote version of the branch.
+        if ref and remote and git_ok("rev-parse", "--verify", f"origin/{ref}", cwd=root):
+            ref = f"origin/{ref}"
+        sha = git("rev-parse", "--short", ref, cwd=root, check=False) if ref else ""
+        if sha and not any(x["ref"] == ref for x in out):
+            out.append({"key": f"{kind}-{slug(ref)}", "kind": kind, "ref": ref, "item": item,
+                        "title": title, "signature": sha})
+
+    docs = load_all(root)
+    for m in docs:
+        if m.type == "milestone" and m["phase"] == "approved" and m["branch"]:
+            add("release", m["branch"], m.id, m["title"])
+    add("main", p["main_branch"] or "master")
+    for t in docs:
+        if t.type == "task" and t["phase"] in ("development", "in_review") and t["branch"]:
+            add("task", t["branch"], t.id, t["title"])
+    return out
+
+
+def preview_dir(root: Path, key: str) -> Path | None:
+    """Folder to serve for a preview key; branches are exported once per commit."""
+    p = project(root)
+    sub = str(p["preview_root"] or "").strip("/")
+    if key == "live":
+        return (root / sub) if sub else root
+    source = next((x for x in previews(root) if x["key"] == key), None)
+    if source is None:
+        return None
+    target = root / ".factory" / "tmp" / "preview" / f"{slug(source['ref'])}-{source['signature']}"
+    if not target.exists():
+        parent = target.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        for old in parent.glob(f"{slug(source['ref'])}-*"):
+            shutil.rmtree(old, ignore_errors=True)
+        tmp = parent / f".{target.name}.partial"
+        shutil.rmtree(tmp, ignore_errors=True)
+        tmp.mkdir()
+        archive = subprocess.Popen(["git", "archive", source["ref"]], cwd=root, stdout=subprocess.PIPE)
+        subprocess.run(["tar", "-x", "-C", str(tmp)], stdin=archive.stdout, check=True)
+        archive.wait()
+        tmp.rename(target)
+    return (target / sub) if sub else target
+
+
 def state_json(root: Path) -> dict:
     art_base = root / ".factory" / "artifacts"
 
@@ -1120,6 +1206,8 @@ def state_json(root: Path) -> dict:
         "language": LANG,
         "max_attempts": max_attempts(root),
         "prs_url": _prs_url(root),
+        "previews": previews(root),
+        "preview_url": str(project(root)["preview_url"] or ""),
         "generated": now(),
     }
 
@@ -1220,6 +1308,34 @@ def _handler(root: Path):
                     set_lang(root)  # the language may change while the panel runs
                     data = json.dumps(state_json(root), ensure_ascii=False, default=str)
                     self._send(200, data.encode("utf-8"), "application/json; charset=utf-8")
+                elif route.startswith("/preview/"):
+                    key, _, rel = route[len("/preview/"):].partition("/")
+                    base = preview_dir(root, key)
+                    if base is None or not base.exists():
+                        self._send(404, not_found, "text/plain; charset=utf-8")
+                        return
+                    base = base.resolve()
+                    target = (base / rel).resolve()
+                    if target != base and base not in target.parents:
+                        self._send(404, not_found, "text/plain; charset=utf-8")
+                        return
+                    if any(part in PREVIEW_SKIP for part in target.relative_to(base).parts):
+                        self._send(404, not_found, "text/plain; charset=utf-8")
+                        return
+                    if target.is_dir():
+                        if not route.endswith("/"):  # keep relative links working
+                            self.send_response(301)
+                            self.send_header("Location", route + "/")
+                            self.end_headers()
+                            return
+                        target = target / "index.html"
+                    if not target.is_file():
+                        self._send(404, not_found, "text/plain; charset=utf-8")
+                        return
+                    ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+                    if ctype.startswith("text/") or ctype in ("application/javascript", "application/json"):
+                        ctype += "; charset=utf-8"
+                    self._send(200, target.read_bytes(), ctype)
                 elif route.startswith("/artifact/"):
                     target = (art_base / route[len("/artifact/"):]).resolve()
                     if art_base not in target.parents or not target.is_file():

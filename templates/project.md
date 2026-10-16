@@ -10,6 +10,8 @@ language: es
 max_attempts: 3
 discovery: pending
 architecture: pending
+preview_root: 
+preview_url: 
 status: queued
 reason: 
 created: 
@@ -20,6 +22,7 @@ updated:
 
 > Lo rellena el arquitecto en la arquitectura base. Se inyecta en el contexto de todos los agentes.
 > `interface`: `web`, `none` o `mixed` (decide si las funcionalidades llevan maqueta, reglas de negocio o ambas).
+> `preview_root`: carpeta que sirve la vista previa del panel (vacío = raíz del repo; p. ej. `dist` si el stack compila). `preview_url`: URL de un servidor de desarrollo, si el stack lo necesita (la vista previa en directo la usa en lugar de los ficheros).
 > `language`: idioma de todo lo que lee el humano (panel, mensajes, documentos, conversación): `es` o `en`. El código siempre va en inglés.
 
 ## Stack

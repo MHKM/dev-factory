@@ -215,6 +215,18 @@ body.dock-open { padding-bottom: 330px; }
 .dock-input input:focus { outline: 1px solid #8b85ff; }
 .dock-input button { font: inherit; background: #8b85ff; color: #11151d; border: 0; border-radius: 6px; padding: 0 14px; font-weight: 700; cursor: pointer; }
 
+/* Preview */
+.pv-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.pv-bar .selector button { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-bar .tag { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); margin-left: 4px; }
+.pv-hint { margin: 8px 0 12px; }
+.pv-stage { display: flex; justify-content: center; }
+.pv-stage iframe { border: 1px solid var(--border); background: #fff; display: block; }
+.pv-stage.desktop iframe { width: 100%; height: calc(100vh - 250px); min-height: 420px; border-radius: 10px; }
+.pv-stage.tablet iframe { width: 820px; max-width: 100%; height: 1000px; max-height: calc(100vh - 250px); border-radius: 18px; border-width: 10px; border-color: #1f2430; }
+.pv-stage.mobile iframe { width: 390px; height: 780px; max-height: calc(100vh - 250px); border-radius: 30px; border-width: 12px; border-color: #1f2430; }
+.pv-empty { width: 100%; }
+
 @media (max-width: 760px) {
   main { padding: 16px; }
   header.top { padding: 10px 16px; }
@@ -228,6 +240,7 @@ body.dock-open { padding-bottom: 330px; }
   <nav class="tabs">
     <button data-view="product"></button>
     <button data-view="construction"></button>
+    <button data-view="preview"></button>
   </nav>
   <div class="spacer"></div>
   <span id="badge-slot"></span>
@@ -281,6 +294,14 @@ const I18N = {
     sent: "Enviado al orquestador", orchestrator: "Orquestador", dock_ph: "Escribe al orquestador…",
     you: "tú", no_messages: "Todavía no hay mensajes.", sound_on: "🔔 Aviso sonoro", sound_off: "🔕 Sin sonido",
     pick_all: "Elige una opción en cada pregunta",
+    preview: "Vista previa", src_live: "En directo", src_release: "Release", src_main: "Producción",
+    mobile: "Móvil", tablet: "Tableta", desktop: "Escritorio", refresh: "Refrescar", open_tab: "Abrir en pestaña ↗",
+    hint_live: "Carpeta de trabajo: lo que hay en disco ahora mismo, incluido lo que el desarrollador está escribiendo. Se recarga sola al cambiar.",
+    hint_live_url: "Servidor de desarrollo del proyecto ({url}).",
+    hint_release: "Release del hito {id}: lo ya integrado. Se recarga sola con cada fusión.",
+    hint_main: "Rama principal: lo aceptado (producción).",
+    hint_task: "Rama de la tarea {id}: lo que se revisa en su PR. Se recarga sola con cada commit.",
+    nothing_preview: "Todavía no hay nada que ver aquí: falta un index.html.",
   },
   en: {
     panel: "Control panel", product: "Product", construction: "Construction", connecting: "connecting…",
@@ -314,6 +335,14 @@ const I18N = {
     sent: "Sent to the orchestrator", orchestrator: "Orchestrator", dock_ph: "Message the orchestrator…",
     you: "you", no_messages: "No messages yet.", sound_on: "🔔 Sound alert", sound_off: "🔕 Muted",
     pick_all: "Pick an option in every question",
+    preview: "Preview", src_live: "Live", src_release: "Release", src_main: "Production",
+    mobile: "Mobile", tablet: "Tablet", desktop: "Desktop", refresh: "Refresh", open_tab: "Open in tab ↗",
+    hint_live: "Working folder: what is on disk right now, including what the developer is writing. Reloads by itself on changes.",
+    hint_live_url: "Project dev server ({url}).",
+    hint_release: "Release of milestone {id}: what is already integrated. Reloads by itself on every merge.",
+    hint_main: "Main branch: what has been accepted (production).",
+    hint_task: "Branch of task {id}: what its PR shows. Reloads by itself on every commit.",
+    nothing_preview: "Nothing to see here yet: there is no index.html.",
   }
 };
 const LABELS = {
@@ -376,9 +405,11 @@ const COLUMNS = ["pending", "development", "in_review", "done"];
 const FEATURE_ORDER = ["defined", "specified", "building", "validated", "accepted"];
 const STALE_SECONDS = 300;
 
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 let lang = "es", T = I18N.es, LB = LABELS.es;
 let state = null, signature = "", selectedMilestone = null, side = null;
-let view = ["product", "construction"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "product";
+let view = ["product", "construction", "preview"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "product";
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -441,7 +472,8 @@ function render() {
     (pending.length ? `<button class="alert" onclick="goTo('construction')">${pending.length} ${esc(t(pending.length === 1 ? "alert_one" : "alert_many"))}</button>` : "");
   const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.draft : null;
   const caret = focused ? document.activeElement.selectionStart : 0;
-  $("#view").innerHTML = view === "product" ? productView() : constructionView(pending);
+  if (view === "preview") previewView();
+  else $("#view").innerHTML = view === "product" ? productView() : constructionView(pending);
   if (focused) { const el = document.querySelector(`[data-draft="${CSS.escape(focused)}"]`); if (el) { el.focus(); el.setSelectionRange(caret, caret); } }
   renderDock();
   renderSound();
@@ -690,10 +722,75 @@ function taskCard(task) {
   </div>`;
 }
 
+/* ------------------------------------------------------------------ Preview */
+let pvKey = store.get("factory.preview") || "", pvDevice = store.get("factory.device") || "desktop", pvSig = null, pvScroll = 0;
+
+function pvLabel(x) {
+  if (x.kind === "live") return t("src_live");
+  if (x.kind === "main") return t("src_main");
+  if (x.kind === "release") return `${t("src_release")} · ${x.item}`;
+  return `${x.item} · ${x.title}`;
+}
+
+function pvHint(x) {
+  if (x.kind === "live") return state.preview_url ? t("hint_live_url", { url: state.preview_url }) : t("hint_live");
+  if (x.kind === "release") return t("hint_release", { id: x.item });
+  if (x.kind === "main") return t("hint_main");
+  return t("hint_task", { id: x.item });
+}
+
+function pvSrc(x) { return x.kind === "live" && state.preview_url ? state.preview_url : `/preview/${encodeURIComponent(x.key)}/`; }
+
+function previewView() {
+  const list = state.previews || [];
+  let current = list.find(x => x.key === pvKey) || list.find(x => x.kind === "release") || list[0];
+  if (!current) return;
+  const changedSource = current.key !== pvKey;
+  pvKey = current.key;
+  const bar = `<div class="pv-bar">
+      <div class="selector">${list.map(x => `<button class="${x.key === pvKey ? "active" : ""}" title="${esc(pvLabel(x))}"
+        onclick="setPreview('${esc(x.key)}')">${esc(pvLabel(x))}${x.kind !== "live" ? `<span class="tag">${esc(x.signature)}</span>` : ""}</button>`).join("")}</div>
+      <span class="spacer"></span>
+      <div class="selector">${["mobile", "tablet", "desktop"].map(d => `<button class="${d === pvDevice ? "active" : ""}" onclick="setDevice('${d}')">${esc(t(d))}</button>`).join("")}</div>
+      <button class="button" onclick="reloadPreview(true)">${esc(t("refresh"))}</button>
+      <a class="button" href="${esc(pvSrc(current))}" target="_blank">${esc(t("open_tab"))}</a>
+    </div>
+    <div class="muted small pv-hint">${esc(pvHint(current))}</div>`;
+  if (!document.querySelector("#pv-stage")) {
+    $("#view").innerHTML = `<div id="pv-top"></div><div class="pv-stage ${pvDevice}" id="pv-stage"></div>`;
+    pvSig = null;
+  }
+  $("#pv-top").innerHTML = bar;
+  $("#pv-stage").className = `pv-stage ${pvDevice}`;
+  if (changedSource || pvSig !== current.signature || !document.querySelector("#preview-frame, .pv-empty")) {
+    pvSig = current.signature;
+    reloadPreview(false);
+  }
+}
+
+async function reloadPreview(manual) {
+  const current = (state.previews || []).find(x => x.key === pvKey);
+  if (!current) return;
+  const stage = $("#pv-stage"), frame = $("#preview-frame");
+  try { if (frame && frame.contentWindow) pvScroll = frame.contentWindow.scrollY || 0; } catch (e) { pvScroll = 0; }
+  const src = pvSrc(current);
+  if (!(current.kind === "live" && state.preview_url)) {
+    const r = await fetch(src, { cache: "no-store" }).catch(() => null);
+    if (!r || !r.ok) { stage.innerHTML = `<div class="empty pv-empty">${esc(t("nothing_preview"))}</div>`; return; }
+  }
+  if (frame && !manual && frame.dataset.src === src) {
+    frame.contentWindow.location.reload();
+    return;
+  }
+  stage.innerHTML = `<iframe id="preview-frame" data-src="${esc(src)}" src="${esc(src)}"></iframe>`;
+  $("#preview-frame").addEventListener("load", e => { try { e.target.contentWindow.scrollTo(0, pvScroll); } catch (err) {} });
+}
+
+function setPreview(key) { pvKey = key; store.set("factory.preview", key); pvSig = null; render(); }
+function setDevice(d) { pvDevice = d; store.set("factory.device", d); render(); }
+
 /* ------------------------------------------------------------------ Decisions */
 const drafts = {}, answers = {}, openComment = {};
-const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-                set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 
 function parseQuestions(text) {
   const qs = [];
