@@ -110,17 +110,29 @@ h2:first-child { margin-top: 4px; }
 .pulse { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; animation: pulse 1.4s infinite; }
 @keyframes pulse { 50% { opacity: .25; } }
 
-.agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-.agent { border-left: 4px solid var(--role); padding: 14px 16px; }
-.agent .agent-head { display: flex; align-items: center; gap: 8px; color: var(--role); }
-.agent .agent-head b { font-size: 15px; color: var(--text); }
-.agent ul { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 4px; }
+.agents { display: grid; gap: 6px; }
+.agent { border-left: 4px solid var(--role); padding: 0; overflow: hidden; }
+.agent .agent-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; color: var(--role); min-width: 0; }
+.agent .agent-head:hover { background: var(--surface-2); }
+.agent .agent-head b { font-size: 14px; color: var(--text); flex: none; }
+.agent .agent-head .ids { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.agent .agent-head .when { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; flex: none; }
+.agent .agent-head .caret { color: var(--muted); font-size: 11px; transition: transform .15s; flex: none; }
+.agent.open .agent-head .caret { transform: rotate(90deg); }
+.agent .details { display: none; padding: 0 12px 12px 29px; }
+.agent.open .details { display: block; }
+.agent ul { list-style: none; margin: 4px 0 8px; padding: 0; display: grid; gap: 4px; }
 .agent li { cursor: pointer; }
 .agent li:hover .title-link { color: var(--accent); }
-.agent .action { font-size: 12px; color: var(--muted); background: var(--surface-2); border-radius: 6px; padding: 6px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent .action { font-size: 12px; color: var(--muted); background: var(--surface-2); border-radius: 6px; padding: 6px 8px; overflow-wrap: anywhere; }
+.agent .meta-line { font-size: 12px; color: var(--muted); margin-top: 6px; }
 .agent.stale { border-left-style: dashed; }
 .agent.stale .pulse { animation: none; opacity: .4; }
+.agent .stale-icon { display: none; color: var(--red); flex: none; }
+.agent.stale .stale-icon { display: inline; }
+.agent.stale .agent-head .when { color: var(--red); }
 .agent .warn { margin-top: 8px; font-size: 12px; color: var(--red); }
+.side-stack h2:not(:first-child) { margin-top: 20px; }
 .role-orchestrator { --role: var(--violet); } .role-analyst { --role: var(--blue); } .role-prototyper { --role: var(--pink); }
 .role-architect { --role: var(--orange); } .role-developer { --role: var(--green); } .role-validator { --role: var(--red); }
 
@@ -463,14 +475,13 @@ function constructionView(pending) {
     </div>`;
   }).join("") : `<div class="empty">${esc(t("nothing_pending"))}</div>`;
 
-  h += `<h2>${esc(t("working_now"))}</h2>` + workingNow();
-
   const recent = state.activity.recent.slice(0, 5);
-  h += `<div class="two"><div><h2>${esc(t("next_steps"))}</h2><div class="card">${state.actions.length
+  h += `<div class="two"><div><h2>${esc(t("working_now"))}</h2>${workingNow()}</div>
+    <div class="side-stack"><h2>${esc(t("next_steps"))}</h2><div class="card">${state.actions.length
     ? `<ul class="plain-list">${state.actions.map(a => `<li><span class="id">${esc(a.id)}</span>
         <span>${esc(LB.mode[a.mode] || a.mode)} <span class="muted">· ${esc(agentLabel(a.who.replace("launch ", "")))}</span></span></li>`).join("")}</ul>`
-    : `<span class="muted">${esc(t("nothing_next"))}</span>`}</div></div>
-    <div><h2>${esc(t("recently"))}</h2><div class="card">${recent.length
+    : `<span class="muted">${esc(t("nothing_next"))}</span>`}</div>
+    <h2>${esc(t("recently"))}</h2><div class="card">${recent.length
     ? `<ul class="plain-list">${recent.map(r => `<li class="role-${esc(r.role)}"><b style="color:var(--role)">${esc(agentLabel(r.role))}</b>
         <span class="id">${esc((r.items || []).join(", ") || "—")}</span>
         <span class="muted small since" data-since="${esc(r.ended)}" data-fmt="ago"></span></li>`).join("")}</ul>`
@@ -523,6 +534,12 @@ function actionText(a) {
   }
 }
 
+const openAgents = new Set();
+function toggleAgent(id) {
+  openAgents.has(id) ? openAgents.delete(id) : openAgents.add(id);
+  document.querySelector(`.agent[data-agent="${CSS.escape(id)}"]`)?.classList.toggle("open", openAgents.has(id));
+}
+
 function workingNow() {
   const agents = state.activity.agents;
   const listed = new Set(agents.flatMap(a => a.items || []));
@@ -530,19 +547,26 @@ function workingNow() {
   if (!agents.length && !orphans.length) return `<div class="empty">${esc(t("no_agents"))}</div>`;
   let h = agents.length ? `<div class="agents">${agents.map(a => {
     const items = (a.items || []).map(id => byId(id)).filter(Boolean);
-    return `<div class="card agent role-${esc(a.role)}" data-last-seen="${esc(a.last_seen || a.started)}">
-      <div class="agent-head"><span class="pulse"></span><b>${esc(agentLabel(a.role))}</b>
-        <span class="spacer"></span><span class="muted small since" data-since="${esc(a.started)}" data-fmt="started"></span></div>
-      ${items.length ? `<ul>${items.map(e => `<li onclick="openSide('${esc(e.meta.id)}')"><span class="id">${esc(e.meta.id)}</span>
-        <span class="title-link">${esc(titleOf(e))}</span> ${chip(phaseLabel(e.meta))}</li>`).join("")}</ul>`
-        : `<p class="muted small">${esc(t("no_items_yet"))}</p>`}
-      <div class="action" title="${esc(actionText(a.action))}">${esc(t("last_action"))}: ${esc(actionText(a.action))}
-        · <span class="since" data-since="${esc(a.last_seen || a.started)}" data-fmt="ago"></span></div>
-      <div class="warn" hidden></div>
+    const lastSeen = a.last_seen || a.started;
+    return `<div class="card agent role-${esc(a.role)} ${openAgents.has(a.id) ? "open" : ""}" data-agent="${esc(a.id)}" data-last-seen="${esc(lastSeen)}">
+      <div class="agent-head" onclick="toggleAgent('${esc(a.id)}')">
+        <span class="caret">▶</span><span class="pulse"></span><b>${esc(agentLabel(a.role))}</b>
+        <span class="ids">${esc((a.items || []).join(", ") || "…")}</span>
+        <span class="stale-icon" title="${esc(t("stale", { t: "" }))}">⚠</span>
+        <span class="when since" data-since="${esc(lastSeen)}" data-fmt="ago"></span>
+      </div>
+      <div class="details">
+        ${items.length ? `<ul>${items.map(e => `<li onclick="openSide('${esc(e.meta.id)}')"><span class="id">${esc(e.meta.id)}</span>
+          <span class="title-link">${esc(titleOf(e))}</span> ${chip(phaseLabel(e.meta))}</li>`).join("")}</ul>`
+          : `<p class="muted small">${esc(t("no_items_yet"))}</p>`}
+        <div class="action">${esc(t("last_action"))}: ${esc(actionText(a.action))}</div>
+        <div class="meta-line since" data-since="${esc(a.started)}" data-fmt="started"></div>
+        <div class="warn" hidden></div>
+      </div>
     </div>`;
   }).join("")}</div>` : "";
   if (orphans.length) {
-    h += `<div class="card" style="margin-top:12px"><div class="muted small" style="margin-bottom:6px">${esc(t("unassigned"))}</div>
+    h += `<div class="card" style="margin-top:8px"><div class="muted small" style="margin-bottom:6px">${esc(t("unassigned"))}</div>
       <ul class="plain-list">${orphans.map(e => `<li style="cursor:pointer" onclick="openSide('${esc(e.meta.id)}')"><span class="pulse" style="color:var(--amber)"></span>
         <span class="id">${esc(e.meta.id)}</span><span>${esc(titleOf(e))}</span></li>`).join("")}</ul></div>`;
   }
