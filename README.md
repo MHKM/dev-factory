@@ -4,7 +4,7 @@ Plataforma de desarrollo agéntico sobre Claude Code. Le cuentas a un orquestado
 
 ```bash
 cd <carpeta-del-proyecto-nuevo>
-claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator
+claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator "arranca"
 ```
 
 ## Contenido
