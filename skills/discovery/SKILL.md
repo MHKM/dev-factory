@@ -16,6 +16,7 @@ Las plantillas están en `${CLAUDE_PLUGIN_ROOT}/templates/` (`vision.md`, `roadm
 - **Propón ideas que no ha pedido** cuando aporten valor claro, marcadas como `💡 Sugerencia`, cada una con su beneficio en una línea. El humano decide si entran.
 - **No preguntes por tecnología.** El stack lo propone el arquitecto en la arquitectura base, con su propia consulta. Si el humano expresa una preferencia o una restricción técnica (hosting que ya tiene, dominio, herramientas), anótala como restricción.
 - Si algo no se puede cerrar ahora, apúntalo en «Preguntas abiertas» y sigue.
+- **Busca referencias en la web** (`WebSearch`) cuando ayude: qué ofrecen negocios parecidos de la zona, qué suele incluir ese tipo de web. Úsalas como inspiración; nunca copies datos, textos ni marcas de negocios reales.
 - Resume lo entendido antes de escribir nada, para que el humano lo corrija.
 
 ## Rondas (modo inicial)

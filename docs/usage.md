@@ -41,23 +41,41 @@ Los agentes ejecutan `factory` constantemente. Para que Claude Code no pida apro
 
 > «Quiero construir una web para el taller de mi primo, en Boadilla. Que permita ver los servicios que ofrece y un formulario para que le llamen para cita.»
 
-1. **Inicio**: te pregunta el nombre del proyecto, si quieres repositorio en GitHub o solo local y en qué idioma se escriben los artefactos. Crea `.factory/`, hace el commit inicial y abre el panel.
+1. **Inicio**: te pregunta el nombre del proyecto, si quieres repositorio en GitHub (privado o público) o solo local, y el idioma de la interfaz (español o inglés: panel, mensajes, documentos y conversación; el código va siempre en inglés). Crea `.factory/`, hace el commit inicial y abre el panel.
 2. **Descubrimiento**: varias rondas cortas sobre servicios, precios, cómo quiere recibir las peticiones, fotos y logo, horario y ubicación. Propone ideas (mapa, botón de WhatsApp, aviso de privacidad…). Al final escribe la visión y el roadmap, y crea los hitos y funcionalidades.
 3. **Arquitectura base**: el arquitecto te propone el stack con 2 o 3 opciones (por ejemplo, una web estática con un servicio de formularios frente a algo con backend). Tú eliges.
-4. **Aprobar el hito**: resumen de visión, roadmap y arquitectura, y el contenido del primer hito. Al aprobarlo se crea `release/M01-…`.
-5. **Especificación y maqueta**: el analista escribe las especificaciones y el prototipador las maquetas HTML. Te las presenta una a una; puedes abrir la maqueta desde el panel.
-6. **Construcción**: el arquitecto diseña y crea las tareas. El desarrollador las hace una a una (tests primero) y abre PRs contra la release. El validador revisa cada PR. Tú fusionas.
-7. **Validación y lote**: con todas las tareas fusionadas, el validador comprueba los criterios en la release. Después te presenta el lote para aceptar cada funcionalidad.
-8. **Cierre**: PR de la release a `master`; la fusionas y el hito queda cerrado.
+4. **Diseño** (proyectos con interfaz): te pregunta qué nivel quieres (kit completo de agencia, solo directrices o sin diseño) y si ya tienes logo o colores. El prototipador crea el kit: guía de marca, paleta con HEX/RGB/HSL y equivalencias Pantone y CMYK, tipografía, espaciado, componentes y tokens. Lo revisas en el panel (botón «Kit de diseño») y lo apruebas o pides cambios.
+5. **Aprobar el hito**: resumen de visión, roadmap y arquitectura, y el contenido del primer hito. Al aprobarlo se crea `release/M01-…`.
+6. **Especificación y maqueta**: el analista escribe las especificaciones y el prototipador las maquetas HTML. Te las presenta una a una; puedes abrir la maqueta desde el panel.
+7. **Construcción**: el arquitecto diseña y crea las tareas. El desarrollador las hace una a una (tests primero) y abre PRs contra la release. El validador revisa cada PR. Tú fusionas.
+8. **Validación y lote**: con todas las tareas fusionadas, el validador comprueba los criterios en la release. Después te presenta el lote para aceptar cada funcionalidad.
+9. **Cierre**: PR de la release a `master`; la fusionas y el hito queda cerrado.
 
 ## Panel de control
 
 Al arrancar, el orquestador abre el panel en el navegador (`http://127.0.0.1:8765/` o el siguiente puerto libre; la URL queda en `.factory/panel.url`). Trabaja con la terminal y el panel a la vez:
 
 - **Producto**: lo definido y lo aprobado, con los tres OK de cada funcionalidad y acceso a especificaciones, maquetas, diseños, validaciones y decisiones.
-- **Construcción**: lo que te espera, lo que se está haciendo, los próximos pasos y el kanban de tareas.
+- **Construcción**: lo que te espera (con botón directo a la PR cuando toca fusionar), los agentes trabajando ahora (rol, elementos y última acción, con aviso si un agente lleva más de 5 minutos sin actividad), los próximos pasos, lo terminado recientemente y el kanban de tareas.
 
 Se actualiza solo. Para levantarlo a mano, desde la carpeta del proyecto: `~/Documents/projects/dev-factory/bin/factory panel --open`. Las maquetas se abren en una pestaña nueva. El renderizado de Markdown usa `marked` desde jsDelivr; sin conexión, los documentos se muestran como texto plano.
+
+## Kit de diseño
+
+Vive en `.factory/artifacts/design/` y es lo que entregaría una agencia:
+
+| Fichero | Qué es |
+|---|---|
+| `brand-guide.md` | Guía de marca: concepto, logo, color, tipografía, retícula, iconografía, fotografía, componentes, tono de voz, accesibilidad |
+| `tokens.json` | Fuente única de los valores, en formato estándar W3C Design Tokens |
+| `tokens.css` | Variables CSS generadas (`factory tokens`), con modo oscuro |
+| `index.html` | Galería: muestra cada color con HEX, RGB, HSL, CMYK, Pantone y contraste WCAG, la tipografía, el espaciado y los componentes |
+| `assets/` | Logos y recursos aportados |
+
+- **Pantone y CMYK** son equivalencias aproximadas: confírmalas con una guía física antes de imprimir.
+- **Reutilizar el kit** en otro proyecto: copia la carpeta a `.factory/artifacts/design/` del nuevo proyecto y ajusta `tokens.json`.
+- **Paso a código**: en el primer hito, una tarea transversal copia `tokens.json` al repositorio y genera el tema del stack desde él.
+- **La galería necesita servirse** (panel o servidor local): abierta como fichero, el navegador bloquea la lectura de `tokens.json`.
 
 ## Dónde mirar
 
@@ -106,5 +124,5 @@ Borrar `.factory/` reinicia el estado del proyecto (no el código). No hay papel
 
 - **Modelos y esfuerzo**: en el frontmatter de `agents/*.md`.
 - **Intentos máximos**: `factory set project max_attempts=N`.
-- **Idioma de los artefactos**: `factory set project language=en` (afecta a lo que se escriba a partir de ese momento).
+- **Idioma de la interfaz**: `factory set project language=en` (o `es`). El panel cambia al momento; los documentos ya escritos no se traducen.
 - **Comportamiento de un rol**: su `agents/<rol>.md`. Las reglas compartidas, en `shared/agent-rules.md`.

@@ -53,6 +53,7 @@ Plan técnico del hito y base técnica.
    Objetivo, ficheros afectados, criterios técnicos verificables ("`<comando test>` pasa en local y en CI")
    EOF
    ```
+   - Si hay kit de diseño aprobado (elemento `design` en fase `approved`) y el hito tiene interfaz, incluye una transversal **«Implementar los tokens de diseño»**: copiar `.factory/artifacts/design/tokens.json` al repositorio (p. ej. `design/tokens.json`, es un entregable), generar desde él el tema del stack (`factory tokens --src design/tokens.json --out <ruta>` para variables CSS, o el equivalente del framework) y los componentes base de la galería. Ninguna pantalla usa colores, tamaños o espaciados fuera de los tokens.
 3. Escribe `.factory/artifacts/M##/design.md` con las transversales y el orden.
 4. `factory set M## planned=yes` y `factory status M## queued`.
 

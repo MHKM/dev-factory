@@ -20,7 +20,7 @@ updated:
 
 > Lo rellena el arquitecto en la arquitectura base. Se inyecta en el contexto de todos los agentes.
 > `interface`: `web`, `none` o `mixed` (decide si las funcionalidades llevan maqueta, reglas de negocio o ambas).
-> `language`: idioma en el que los agentes escriben los artefactos (`es` por defecto).
+> `language`: idioma de todo lo que lee el humano (panel, mensajes, documentos, conversación): `es` o `en`. El código siempre va en inglés.
 
 ## Stack
 _(tecnologías y versiones)_

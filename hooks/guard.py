@@ -5,7 +5,7 @@ Only acts in projects that have .factory/. Blocks (exit 2) what no agent may
 do: integrate into protected branches (main branch and release/*), merge PRs,
 commit directly on them and, except for the developer, switch branches.
 It is the first barrier; the real one is branch protection on GitHub.
-Messages are in Spanish because they are shown to the human.
+Messages follow the project's language because they are shown to the human.
 """
 from __future__ import annotations
 
@@ -20,20 +20,44 @@ from pathlib import Path
 FACTORY_AGENTS = ("orchestrator", "analyst", "prototyper", "architect", "developer", "validator")
 
 
-def block(reason: str) -> None:
-    print(f"Bloqueado por la guardia de factory: {reason}", file=sys.stderr)
+MESSAGES = {
+    "prefix": ("Bloqueado por la guardia de factory: ", "Blocked by the factory guard: "),
+    "pr_merge": ("ningún agente fusiona PRs; la fusión la aprueba y hace el humano.",
+                 "no agent merges PRs; the human approves and merges."),
+    "api_merge": ("ningún agente fusiona vía API de GitHub.", "no agent merges through the GitHub API."),
+    "push_all": ("push masivo (--all/--mirror) no permitido.", "bulk push (--all/--mirror) is not allowed."),
+    "push_current": ("push a la rama protegida '{b}'.", "push to the protected branch '{b}'."),
+    "push_ref": ("push a la rama protegida '{b}'. Usa una rama de tarea y PR.",
+                 "push to the protected branch '{b}'. Use a task branch and a PR."),
+    "integrate": ("'git {sub}' sobre la rama protegida '{b}'. Integrar en ella lo decide el humano.",
+                  "'git {sub}' on the protected branch '{b}'. Integrating into it is the human's call."),
+    "pull": ("en la rama protegida '{b}' solo se permite 'git pull --ff-only'.",
+             "only 'git pull --ff-only' is allowed on the protected branch '{b}'."),
+    "commit": ("commit directo en la rama protegida '{b}'. Crea una rama de tarea.",
+               "direct commit on the protected branch '{b}'. Create a task branch."),
+    "switch": ("solo el desarrollador cambia de rama. Lee otras ramas con 'git show <rama>:<ruta>', "
+               "'git grep <texto> <rama>', 'git diff <base>...<rama>' o 'factory export <rama>'.",
+               "only the developer switches branches. Read other branches with 'git show <branch>:<path>', "
+               "'git grep <text> <branch>', 'git diff <base>...<branch>' or 'factory export <branch>'."),
+}
+LANG = "es"
+
+
+def block(key: str, **kw) -> None:
+    pick = 1 if LANG == "en" else 0
+    print(MESSAGES["prefix"][pick] + MESSAGES[key][pick].format(**kw), file=sys.stderr)
     sys.exit(2)
 
 
-def main_branch(root: Path) -> str:
+def profile_value(root: Path, field: str, default: str) -> str:
     try:
         text = (root / ".factory" / "project.md").read_text(encoding="utf-8")
-        m = re.search(r"^main_branch:\s*(\S+)", text, re.M)
+        m = re.search(rf"^{field}:\s*(\S+)", text, re.M)
         if m:
             return m.group(1)
     except OSError:
         pass
-    return "master"
+    return default
 
 
 def current_branch(cwd: str) -> str:
@@ -63,7 +87,9 @@ def main() -> None:
     if not (root / ".factory").is_dir():
         return
 
-    main = main_branch(root)
+    global LANG
+    LANG = profile_value(root, "language", "es")
+    main = profile_value(root, "main_branch", "master")
     agent = data.get("agent_type") or ""
     is_factory = agent.startswith("factory:") or agent in FACTORY_AGENTS
     is_developer = agent.endswith("developer")
@@ -81,9 +107,9 @@ def main() -> None:
 
         if t[0] == "gh":
             if t[1:3] == ["pr", "merge"]:
-                block("ningún agente fusiona PRs; la fusión la aprueba y hace el humano.")
+                block("pr_merge")
             if len(t) > 1 and t[1] == "api" and "merge" in segment:
-                block("ningún agente fusiona vía API de GitHub.")
+                block("api_merge")
             continue
 
         if t[0] != "git":
@@ -99,28 +125,25 @@ def main() -> None:
 
         if sub == "push":
             if "--all" in args or "--mirror" in args:
-                block("push masivo (--all/--mirror) no permitido.")
+                block("push_all")
             refs = [x for x in args if not x.startswith("-")][1:]
             if not refs and protected(current):
-                block(f"push a la rama protegida '{current}'.")
+                block("push_current", b=current)
             for ref in refs:
                 target = ref.split(":", 1)[1] if ":" in ref else ref
                 if target in ("HEAD", "+HEAD"):
                     target = current
                 if protected(target):
-                    block(f"push a la rama protegida '{target}'. Usa una rama de tarea y PR.")
+                    block("push_ref", b=target)
         elif sub in ("merge", "rebase", "cherry-pick", "revert") and protected(current):
             if not any(x in args for x in ("--abort", "--quit")):
-                block(f"'git {sub}' sobre la rama protegida '{current}'. "
-                      "Integrar en ella lo decide el humano.")
+                block("integrate", sub=sub, b=current)
         elif sub == "pull" and protected(current) and "--ff-only" not in args:
-            block(f"en la rama protegida '{current}' solo se permite 'git pull --ff-only'.")
+            block("pull", b=current)
         elif sub == "commit" and protected(current) and is_factory:
-            block(f"commit directo en la rama protegida '{current}'. Crea una rama de tarea.")
+            block("commit", b=current)
         elif sub in ("checkout", "switch") and is_factory and not is_developer:
-            block("solo el desarrollador cambia de rama. Lee otras ramas con "
-                  "'git show <rama>:<ruta>', 'git grep <texto> <rama>', "
-                  "'git diff <base>...<rama>' o 'factory export <rama>'.")
+            block("switch")
 
 
 if __name__ == "__main__":

@@ -36,6 +36,7 @@ Primero lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md` y cúmplelo. Plantilla
    - Localiza el test que lo cubre (por su ID) y comprueba que pasa.
    - Si no hay test automático, compruébalo tú de forma reproducible (arrancando la app en la carpeta exportada, una petición, revisando la salida de la build…) y explica cómo.
    - Contrasta con la maqueta aprobada si existe: el comportamiento y el contenido deben corresponderse.
+   - Si hay kit de diseño aprobado, comprueba que las pantallas usan los tokens (sin colores, tamaños ni espaciados escritos a mano) y que se respeta el contraste AA.
 4. Escribe `.factory/artifacts/F###/validation.md`, con «Cómo probarlo» para el humano.
 5. Resultado:
    - **OK**: `factory phase F### validated`.

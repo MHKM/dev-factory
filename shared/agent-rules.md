@@ -11,8 +11,10 @@ Los identificadores de la plataforma (comandos, campos, fases, situaciones, modo
   …                     ← entregables (código, tests, configuración): ramas y PRs
   .factory/             ← local, en .gitignore, nunca se commitea
     project.md          ← perfil: stack, comandos, convenciones, rama principal, remoto, idioma
+    design.md           ← estado del kit de diseño (ID `design`): nivel y aprobación
     state/              ← un .md por hito (M01), funcionalidad (F001) y tarea (T001)
     artifacts/          ← vision.md, roadmap.md, architecture.md y una carpeta por elemento
+      design/           ← kit de diseño: brand-guide.md, tokens.json, tokens.css, index.html, assets/
       M01/  design.md, batch.md
       F001/ spec.md, business-rules.md, mockup/index.html, design.md, validation.md
       T001/ review.md
@@ -24,7 +26,8 @@ Los identificadores de la plataforma (comandos, campos, fases, situaciones, modo
 
 ## Idioma
 
-- Escribe los artefactos en el idioma del campo `language` de `.factory/project.md` (`es` por defecto).
+- **Todo lo que lee el humano** va en el idioma del campo `language` de `.factory/project.md` (`es` o `en`): artefactos, preguntas, motivos (`--reason`), descripciones y resúmenes. Sin mezclar idiomas.
+- **Los entregables van siempre en inglés**: código, comentarios, nombres, tests, mensajes de commit y PRs.
 - Las plantillas están en español. Si el idioma es otro, traduce sus encabezados.
 - Los identificadores (IDs, campos, comandos, nombres de fichero) no se traducen nunca.
 
@@ -43,7 +46,7 @@ Nunca edites a mano el frontmatter de `.factory/state/` ni de `.factory/project.
 | Contar un intento fallido | `factory attempt <ID> --reason "…"` |
 | Leer otra rama sin cambiar de rama | `factory export <rama>` (devuelve una carpeta) |
 
-El proyecto en sí se referencia con el ID `project`. Los roles son `orchestrator`, `analyst`, `prototyper`, `architect`, `developer` y `validator`.
+El proyecto en sí se referencia con el ID `project` y el kit de diseño con el ID `design`. Los roles son `orchestrator`, `analyst`, `prototyper`, `architect`, `developer` y `validator`.
 
 **Al terminar, deja siempre el elemento en un estado coherente**: o lo avanzas de fase, o lo dejas en `waiting_human` con preguntas, o en `queued` con un motivo (`--reason`). Nunca lo dejes en `in_progress`.
 

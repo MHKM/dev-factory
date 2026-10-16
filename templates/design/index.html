@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kit de diseño</title>
+<!-- Generic gallery: renders whatever is in tokens.json / tokens.css. Do not edit per project. -->
+<link rel="stylesheet" href="tokens.css">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-family-body);
+  font-size: var(--font-size-md); line-height: var(--font-line-height-normal); }
+h1, h2, h3 { font-family: var(--font-family-heading); line-height: var(--font-line-height-tight); }
+.wrap { max-width: var(--layout-max-width); margin: 0 auto; padding: var(--space-8) var(--layout-gutter); }
+header.kit { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+header.kit h1 { margin: 0; font-size: var(--font-size-3xl); }
+section { margin-top: var(--space-12); }
+section > h2 { font-size: var(--font-size-xl); border-bottom: 1px solid var(--color-border); padding-bottom: var(--space-2); }
+.muted { color: var(--color-text-muted); }
+.small { font-size: var(--font-size-sm); }
+code { font-size: var(--font-size-xs); background: var(--color-primary-soft); padding: 1px 6px; border-radius: var(--radius-sm); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-4); }
+.swatch { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
+.swatch .chip { height: 88px; display: flex; align-items: flex-end; justify-content: space-between; padding: var(--space-2) var(--space-3); font-weight: 600; font-size: var(--font-size-sm); }
+.swatch dl { margin: 0; padding: var(--space-3); display: grid; grid-template-columns: auto 1fr; gap: 2px var(--space-3); font-size: var(--font-size-xs); }
+.swatch dt { color: var(--color-text-muted); }
+.swatch dd { margin: 0; font-family: ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+.badge { display: inline-block; padding: 0 6px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 600; }
+.ok { background: #dcf5e4; color: #15603a; } .ko { background: #fde4e4; color: #9b1c1c; }
+.type-row { display: grid; grid-template-columns: 110px 1fr; gap: var(--space-4); align-items: baseline; padding: var(--space-2) 0; border-bottom: 1px dashed var(--color-border); }
+.bar { height: 14px; background: var(--color-primary); border-radius: 3px; }
+.box { width: 96px; height: 64px; background: var(--color-surface); border: 1px solid var(--color-border); display: grid; place-items: center; font-size: var(--font-size-xs); }
+.row { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: center; }
+/* Components (use only semantic tokens) */
+.btn { font: inherit; font-weight: var(--font-weight-semibold); padding: var(--space-3) var(--space-6); border-radius: var(--radius-md);
+  border: 1px solid transparent; cursor: pointer; transition: background var(--motion-fast); min-height: 44px; }
+.btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
+.btn-primary:hover { background: var(--color-primary-strong); }
+.btn-accent { background: var(--color-accent); color: #fff; }
+.btn-secondary { background: transparent; color: var(--color-primary); border-color: var(--color-primary); }
+.btn-text { background: transparent; color: var(--color-primary); padding-inline: var(--space-2); }
+.btn:focus-visible, .input:focus-visible { outline: 3px solid var(--color-primary-soft); outline-offset: 2px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.field { display: grid; gap: var(--space-1); max-width: 340px; }
+.field label { font-weight: var(--font-weight-medium); font-size: var(--font-size-sm); }
+.input { font: inherit; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); min-height: 44px; }
+.field.error .input { border-color: var(--color-danger); }
+.field .help { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+.field.error .help { color: var(--color-danger); }
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: var(--space-6); max-width: 340px; }
+.card h3 { margin: 0 0 var(--space-2); }
+.alert { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border-left: 4px solid; background: var(--color-surface); }
+.alert.success { border-color: var(--color-success); } .alert.warning { border-color: var(--color-warning); } .alert.danger { border-color: var(--color-danger); }
+.nav { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-6); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.nav a { color: var(--color-text); text-decoration: none; margin-left: var(--space-6); font-weight: var(--font-weight-medium); }
+.nav a.active { color: var(--color-primary); }
+.notice { padding: var(--space-6); border: 1px dashed var(--color-danger); border-radius: var(--radius-md); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="kit">
+    <div><h1>Kit de diseño</h1><div class="muted" id="desc"></div></div>
+    <div class="row">
+      <button class="btn btn-secondary" id="theme">Modo oscuro</button>
+    </div>
+  </header>
+  <div id="out"></div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let tokens = null;
+
+function lookup(path) {
+  return path.split(".").reduce((n, k) => (n && n[k] !== undefined ? n[k] : undefined), tokens);
+}
+function resolve(value, depth = 0) {
+  if (typeof value === "string" && /^\{.+\}$/.test(value) && depth < 10) {
+    const t = lookup(value.slice(1, -1));
+    return t ? resolve(t.$value, depth + 1) : value;
+  }
+  return value;
+}
+function leaves(node, path = [], out = []) {
+  for (const [k, v] of Object.entries(node || {})) {
+    if (k.startsWith("$")) continue;
+    if (v && typeof v === "object" && "$value" in v) out.push({ path: [...path, k], token: v });
+    else if (v && typeof v === "object") leaves(v, [...path, k], out);
+  }
+  return out;
+}
+function rgb(hex) {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function hsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+  let h = 0, s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > .5 ? d / (2 - max - min) : d / (max + min);
+    h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+  }
+  return `${Math.round(h)}° ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+function luminance([r, g, b]) {
+  const f = c => { c /= 255; return c <= .03928 ? c / 12.92 : Math.pow((c + .055) / 1.055, 2.4); };
+  return .2126 * f(r) + .7152 * f(g) + .0722 * f(b);
+}
+function contrast(a, b) {
+  const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m);
+  return (x + .05) / (y + .05);
+}
+const grade = c => `<span class="badge ${c >= 4.5 ? "ok" : "ko"}">${c.toFixed(1)}:1 ${c >= 7 ? "AAA" : c >= 4.5 ? "AA" : c >= 3 ? "AA grande" : "✗"}</span>`;
+
+function colorCard({ path, token }) {
+  const hex = String(resolve(token.$value));
+  if (!/^#[0-9a-f]{3,8}$/i.test(hex)) return "";
+  const c = rgb(hex), ext = token.$extensions || {};
+  const onWhite = contrast(c, [255, 255, 255]), onBlack = contrast(c, [0, 0, 0]);
+  const label = onWhite > onBlack ? "#fff" : "#111";
+  const ref = typeof token.$value === "string" && token.$value.startsWith("{") ? token.$value : "";
+  return `<div class="swatch">
+    <div class="chip" style="background:${hex};color:${label}"><span>${esc(path.slice(1).join("."))}</span><span>${hex}</span></div>
+    <dl>
+      <dt>Token</dt><dd>--${esc(path.join("-"))}</dd>
+      ${ref ? `<dt>Ref.</dt><dd>${esc(ref)}</dd>` : ""}
+      <dt>RGB</dt><dd>${c.join(", ")}</dd>
+      <dt>HSL</dt><dd>${hsl(c)}</dd>
+      ${ext.cmyk ? `<dt>CMYK</dt><dd>${esc(ext.cmyk)}</dd>` : ""}
+      ${ext.pantone ? `<dt>Pantone</dt><dd>${esc(ext.pantone)}</dd>` : ""}
+      ${ext.mode && ext.mode.dark ? `<dt>Oscuro</dt><dd>${esc(ext.mode.dark)}</dd>` : ""}
+      <dt>Contraste</dt><dd>blanco ${grade(onWhite)} negro ${grade(onBlack)}</dd>
+    </dl>
+    ${token.$description ? `<div class="small muted" style="padding:0 var(--space-3) var(--space-3)">${esc(token.$description)}</div>` : ""}
+  </div>`;
+}
+
+function render() {
+  $("#desc").textContent = "Valores de tokens.json · las equivalencias Pantone y CMYK son aproximadas";
+  const all = leaves(tokens);
+  const colors = all.filter(l => l.path[0] === "color");
+  const palette = colors.filter(l => l.path[1] === "palette");
+  const semantic = colors.filter(l => l.path[1] !== "palette");
+  const group = (name) => all.filter(l => l.path[0] === name);
+  const families = all.filter(l => l.path[0] === "font" && l.path[1] === "family");
+
+  for (const f of families) {
+    const url = (f.token.$extensions || {}).url;
+    if (url && !document.querySelector(`link[href="${url}"]`)) {
+      const l = document.createElement("link"); l.rel = "stylesheet"; l.href = url; document.head.appendChild(l);
+    }
+  }
+
+  // Semantic text/background pairs worth checking
+  const pairs = [["text", "bg"], ["text", "surface"], ["text-muted", "surface"], ["on-primary", "primary"], ["primary", "surface"], ["danger", "surface"]];
+  const pairRows = pairs.map(([fg, bg]) => {
+    const a = lookup(`color.${fg}`), b = lookup(`color.${bg}`);
+    if (!a || !b) return "";
+    const ca = rgb(String(resolve(a.$value))), cb = rgb(String(resolve(b.$value)));
+    return `<tr><td><code>${fg}</code> sobre <code>${bg}</code></td>
+      <td><span style="padding:4px 10px;border-radius:6px;background:var(--color-${bg});color:var(--color-${fg})">Texto de ejemplo</span></td>
+      <td>${grade(contrast(ca, cb))}</td></tr>`;
+  }).join("");
+
+  $("#out").innerHTML = `
+  <section><h2>Paleta de marca</h2><div class="grid">${palette.map(colorCard).join("")}</div></section>
+  <section><h2>Colores semánticos</h2><p class="muted small">Los que usan los componentes y las pantallas. Valores en modo claro; el oscuro se ve con el botón de arriba.</p>
+    <div class="grid">${semantic.map(colorCard).join("")}</div>
+    <h3>Contraste de combinaciones de uso</h3><table>${pairRows}</table></section>
+  <section><h2>Tipografía</h2>
+    ${families.map(f => `<div class="type-row"><code>${esc(f.path.slice(2).join("."))}</code>
+      <div style="font-family:var(--${f.path.join("-")});font-size:var(--font-size-2xl)">Taller de confianza · Aa Bb 123
+      <div class="small muted" style="font-family:var(--font-family-body)">${esc([].concat(f.token.$value).join(", "))}${(f.token.$extensions || {}).license ? " · " + esc(f.token.$extensions.license) : ""}</div></div></div>`).join("")}
+    <h3>Escala</h3>
+    ${all.filter(l => l.path[0] === "font" && l.path[1] === "size").reverse().map(l => `<div class="type-row"><code>${esc(l.path[2])} · ${esc(l.token.$value)}</code>
+      <div style="font-size:var(--${l.path.join("-")});font-family:var(--font-family-heading)">Revisión y mantenimiento</div></div>`).join("")}
+  </section>
+  <section><h2>Espaciado</h2>${group("space").map(l => `<div class="type-row"><code>space.${esc(l.path[1])} · ${esc(l.token.$value)}</code><div class="bar" style="width:var(--${l.path.join("-")})"></div></div>`).join("")}</section>
+  <section><h2>Radios y sombras</h2><div class="row">
+    ${group("radius").map(l => `<div class="box" style="border-radius:var(--${l.path.join("-")})">radius.${esc(l.path[1])}</div>`).join("")}
+    ${group("shadow").map(l => `<div class="box" style="box-shadow:var(--${l.path.join("-")});border-color:transparent">shadow.${esc(l.path[1])}</div>`).join("")}
+  </div></section>
+  <section><h2>Breakpoints y layout</h2><table>${[...group("breakpoint"), ...group("layout")].map(l => `<tr><td><code>${esc(l.path.join("."))}</code></td><td>${esc(l.token.$value)}</td><td class="muted small">${esc(l.token.$description || "")}</td></tr>`).join("")}</table></section>
+  <section><h2>Componentes</h2>
+    <div class="nav"><strong style="font-family:var(--font-family-heading)">Marca</strong><div><a class="active" href="#">Inicio</a><a href="#">Servicios</a><a href="#">Contacto</a></div></div>
+    <h3>Botones</h3><div class="row">
+      <button class="btn btn-primary">Pedir cita</button><button class="btn btn-accent">Llamar ahora</button>
+      <button class="btn btn-secondary">Ver servicios</button><button class="btn btn-text">Más información</button>
+      <button class="btn btn-primary" disabled>Deshabilitado</button></div>
+    <h3>Formulario</h3><div class="row" style="align-items:flex-start">
+      <div class="field"><label>Nombre</label><input class="input" placeholder="Tu nombre"><span class="help">Como quieres que te llamemos</span></div>
+      <div class="field error"><label>Teléfono</label><input class="input" value="12345"><span class="help">Introduce un teléfono de 9 cifras</span></div></div>
+    <h3>Tarjeta</h3><div class="card"><h3>Cambio de aceite</h3><p class="muted">Aceite y filtro con revisión de niveles incluida.</p><button class="btn btn-secondary">Pedir cita</button></div>
+    <h3>Avisos</h3><div style="display:grid;gap:var(--space-3);max-width:520px">
+      <div class="alert success">Hemos recibido tu petición. Te llamaremos hoy.</div>
+      <div class="alert warning">Los sábados solo abrimos por la mañana.</div>
+      <div class="alert danger">No hemos podido enviar el formulario. Inténtalo de nuevo.</div></div>
+  </section>`;
+}
+
+const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+const isDark = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : systemDark;
+$("#theme").textContent = isDark() ? "Modo claro" : "Modo oscuro";
+$("#theme").onclick = () => {
+  const dark = !isDark();
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  $("#theme").textContent = dark ? "Modo claro" : "Modo oscuro";
+};
+
+fetch("tokens.json", { cache: "no-store" }).then(r => r.json()).then(t => { tokens = t; render(); })
+  .catch(() => { $("#out").innerHTML = `<p class="notice">No se pudo leer <code>tokens.json</code>. Abre esta galería desde el panel de factory (o sírvela con un servidor local); abierta como fichero el navegador bloquea la lectura.</p>`; });
+</script>
+</body>
+</html>

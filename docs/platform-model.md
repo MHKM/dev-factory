@@ -50,7 +50,7 @@ Proyecto
 ## 3. Flujo general
 
 ```
-Descubrimiento → Visión + Roadmap + Arquitectura base (aprobados)
+Descubrimiento → Visión + Roadmap + Arquitectura base + Kit de diseño (aprobados)
    → por cada hito aprobado (se abre su rama release, §12):
        Análisis funcional → Maqueta / reglas de negocio (aprobadas)
        → Diseño técnico con interfaces (con consulta previa si hace falta)
@@ -73,7 +73,7 @@ Descubrimiento → Visión + Roadmap + Arquitectura base (aprobados)
 | **Descubrimiento** | Agente de alta capacidad. Escucha la necesidad, pregunta y **propone ideas no pedidas** (marcadas como sugerencias). Prioriza con el humano (imprescindible / deseable / más adelante). | Visión, roadmap por hitos |
 | **Arquitecto** | Arquitectura base al inicio. Por hito: diseño técnico (incluidas las **interfaces** que permiten escribir los tests), tareas técnicas y transversales, paquetes de trabajo. Decide si hace falta consulta previa. | Arquitectura base, diseño técnico, tareas |
 | **Analista** | Baja cada funcionalidad del hito a especificación con criterios de aceptación. | Especificación funcional |
-| **Prototipador** | Genera la maqueta HTML navegable (solo desarrollos web). | Maqueta |
+| **Prototipador / diseñador** | Kit de diseño del proyecto (guía de marca, tokens, galería) y maquetas HTML navegables, de alta fidelidad si hay kit (desarrollos con interfaz). | Kit de diseño, maqueta |
 | **Desarrollador** | Escribe **primero los tests** (a partir de los criterios de aceptación y las interfaces del diseño) y después implementa hasta que pasan. Trabaja en su rama. | Tests + código + pull request |
 | **Validador** | Comprueba que lo construido cumple los criterios. Debe ser independiente (otro modelo o sin acceso al razonamiento del desarrollador). | Informe de validación |
 
@@ -197,6 +197,7 @@ Tareas necesarias que no aportan funcionalidad de negocio (repositorio, entornos
 |---|---|
 | Descubrimiento | Visión (objetivo, destinatarios, alcance, ideas aceptadas y descartadas, preguntas abiertas), roadmap por hitos |
 | Arquitectura | Arquitectura base, registro de decisiones |
+| Diseño | Kit de diseño: guía de marca, `tokens.json`/`tokens.css`, galería (nivel completo o directrices) |
 | Análisis | Especificación con criterios de aceptación; maqueta HTML (web) o reglas de negocio |
 | Diseño técnico | Diseño técnico con interfaces, tareas, paquetes |
 | Implementación | Tests, código, pull request (en el repositorio) |
@@ -341,9 +342,15 @@ Se cambian en el frontmatter de cada agente.
 | Presupuesto: `maxTurns` por agente | Es el límite que ofrece Claude Code; el coste en dinero no se controla todavía |
 | El enrutado lo calcula `factory next`, no el criterio del orquestador | Comportamiento predecible y depurable; el orquestador se centra en hablar con el humano |
 | El stack se decide siempre con consulta previa en la arquitectura base | Es la decisión más difícil de revertir |
+| Fase de diseño tras la arquitectura base, con nivel elegido por el humano (completo, directrices o ninguno); la hace el prototipador | Validar el aspecto antes de construir sin añadir un agente nuevo |
+| Kit de diseño local con `tokens.json` (W3C Design Tokens) como fuente única; el lienzo de claude.ai es opcional | Funciona siempre, se ve en el panel y se convierte en código; el lienzo solo está disponible en sesiones interactivas |
+| Pantone y CMYK como equivalencias aproximadas | Son propietarios y dependen del soporte; se confirman con guía física |
+| El kit de diseño es un elemento propio (`design`), separado del proyecto | La arquitectura base y el diseño pueden avanzar en paralelo sin pisarse el estado (demo, nota 4) |
+| La actividad de los agentes la registra un hook (inicio, fin, última acción), no los propios agentes | El panel siempre ve quién trabaja y en qué, aunque el agente no lo declare (demo, notas 1, 6 y 15) |
+| Un único idioma para todo lo que lee el humano (`language`: `es`/`en`); el código siempre en inglés | Sin mezclas de idioma en el panel ni en los documentos (demo, nota 2) |
 | Hotfix: tarea sin hito, rama desde la rama principal y PR contra ella; después, la rama principal se lleva a la release activa | Cubre urgencias sin romper el flujo de releases |
 | Revisión de tarea (validador) y validación de funcionalidad (validador en la release), separadas | La primera protege cada PR; la segunda comprueba los criterios integrados |
-| Código y modelo de datos de la plataforma en inglés; textos para el humano en español; idioma de los artefactos configurable por proyecto (`language`, `es` por defecto) | Código mantenible y estándar; el humano sigue leyendo en su idioma |
+| Código y modelo de datos de la plataforma en inglés; lo que lee el humano, en el idioma del proyecto | Código mantenible y estándar; el humano sigue leyendo en su idioma |
 
 ---
 
@@ -355,3 +362,4 @@ Se cambian en el frontmatter de cada agente.
 - Adelantar el lote cuando otras funcionalidades dependen de una no aceptada (hoy el lote se presenta al final del hito).
 - Si algún día hay más personas: cómo exponer el estado y compartir los artefactos.
 - Proyectos existentes: fase de reconocimiento (§7), no implementada.
+- Lienzo de diseño en claude.ai: confirmar en una sesión interactiva que los subagentes tienen la herramienta `Artifact` (en `claude -p` no la tienen) y probar el flujo lienzo → kit local.

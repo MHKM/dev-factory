@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Panel · factory</title>
+<title>factory</title>
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <style>
 :root {
@@ -15,6 +15,8 @@
   --violet: #7c3aed; --violet-bg: #efe7ff;
   --green: #15803d; --green-bg: #dcf5e4;
   --red: #b91c1c; --red-bg: #fde4e4;
+  --pink: #be185d; --pink-bg: #fce7f3;
+  --orange: #c2410c; --orange-bg: #ffedd5;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -26,6 +28,8 @@
     --violet: #c4a7ff; --violet-bg: #2e2247;
     --green: #77d99a; --green-bg: #15301f;
     --red: #ff9b9b; --red-bg: #3d1a1a;
+    --pink: #f9a8d4; --pink-bg: #3b1729;
+    --orange: #fdba74; --orange-bg: #3b2113;
   }
 }
 * { box-sizing: border-box; }
@@ -44,6 +48,7 @@ nav.tabs button { border: 0; background: transparent; padding: 6px 14px; border-
 nav.tabs button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
 .spacer { flex: 1; }
 .alert { border: 0; cursor: pointer; background: var(--red-bg); color: var(--red); padding: 5px 12px; border-radius: 99px; font-weight: 600; }
+.working-badge { border: 0; cursor: pointer; background: var(--amber-bg); color: var(--amber); padding: 5px 12px; border-radius: 99px; font-weight: 600; }
 .live { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .live i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; }
 .live.down i { background: var(--red); }
@@ -54,6 +59,7 @@ h2:first-child { margin-top: 4px; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 16px; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .muted { color: var(--muted); }
+.small { font-size: 12px; }
 .id { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
 .empty { color: var(--muted); padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: 12px; }
 
@@ -64,13 +70,15 @@ h2:first-child { margin-top: 4px; }
 .c-violet { color: var(--violet); background: var(--violet-bg); }
 .c-green { color: var(--green); background: var(--green-bg); }
 .c-red { color: var(--red); background: var(--red-bg); }
+.c-pink { color: var(--pink); background: var(--pink-bg); }
+.c-orange { color: var(--orange); background: var(--orange-bg); }
 
-.button { border: 1px solid var(--border); background: var(--surface); padding: 4px 10px; border-radius: 7px; cursor: pointer; font-size: 12px; text-decoration: none; color: var(--text); }
+.button { border: 1px solid var(--border); background: var(--surface); padding: 4px 10px; border-radius: 7px; cursor: pointer; font-size: 12px; text-decoration: none; color: var(--text); white-space: nowrap; }
 .button:hover { border-color: var(--accent); color: var(--accent); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* Product */
 .project-head { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
-.project-head p { margin: 4px 0 10px; }
 .milestone { margin-top: 14px; }
 .milestone-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
 .milestone-head h3 { margin: 0; font-size: 17px; }
@@ -98,9 +106,24 @@ h2:first-child { margin-top: 4px; }
 .question { background: var(--surface-2); border-radius: 8px; padding: 4px 14px; margin-top: 10px; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.plain-list li { display: flex; gap: 8px; align-items: baseline; }
-.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); flex: none; animation: pulse 1.4s infinite; position: relative; top: -1px; }
-@keyframes pulse { 50% { opacity: .3; } }
+.plain-list li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.pulse { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+
+.agents { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.agent { border-left: 4px solid var(--role); padding: 14px 16px; }
+.agent .agent-head { display: flex; align-items: center; gap: 8px; color: var(--role); }
+.agent .agent-head b { font-size: 15px; color: var(--text); }
+.agent ul { list-style: none; margin: 10px 0; padding: 0; display: grid; gap: 4px; }
+.agent li { cursor: pointer; }
+.agent li:hover .title-link { color: var(--accent); }
+.agent .action { font-size: 12px; color: var(--muted); background: var(--surface-2); border-radius: 6px; padding: 6px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent.stale { border-left-style: dashed; }
+.agent.stale .pulse { animation: none; opacity: .4; }
+.agent .warn { margin-top: 8px; font-size: 12px; color: var(--red); }
+.role-orchestrator { --role: var(--violet); } .role-analyst { --role: var(--blue); } .role-prototyper { --role: var(--pink); }
+.role-architect { --role: var(--orange); } .role-developer { --role: var(--green); } .role-validator { --role: var(--red); }
+
 .selector { display: flex; gap: 6px; flex-wrap: wrap; }
 .selector button { border: 1px solid var(--border); background: var(--surface); padding: 4px 12px; border-radius: 99px; cursor: pointer; }
 .selector button.active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
@@ -148,66 +171,161 @@ pre.plain { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, monospace
 </head>
 <body>
 <header class="top">
-  <div class="brand"><b id="name">factory</b><span id="subtitle">Panel de control</span></div>
+  <div class="brand"><b id="name">factory</b><span id="subtitle"></span></div>
   <nav class="tabs">
-    <button data-view="product">Producto</button>
-    <button data-view="construction">Construcción</button>
+    <button data-view="product"></button>
+    <button data-view="construction"></button>
   </nav>
   <div class="spacer"></div>
-  <span id="alert-slot"></span>
-  <span class="live" id="live"><i></i>conectando…</span>
+  <span id="badge-slot"></span>
+  <span class="live" id="live"><i></i>…</span>
 </header>
 <main id="view"></main>
 <div id="side-slot"></div>
 
 <script>
-// Code in English; labels shown to the user in Spanish.
-const FEATURE_PHASE = {
-  defined: ["En definición", "gray"], specified: ["Especificación aprobada", "blue"],
-  building: ["En construcción", "amber"], validated: ["Validada · falta tu OK", "violet"],
-  accepted: ["Aceptada", "green"], postponed: ["Aplazada", "gray"], discarded: ["Descartada", "gray"]
+// Code in English. Every text the user sees comes from I18N, in the project's language.
+const I18N = {
+  es: {
+    panel: "Panel de control", product: "Producto", construction: "Construcción", connecting: "conectando…",
+    live: "en vivo", offline: "sin conexión con factory panel",
+    alert_one: "cosa te espera", alert_many: "cosas te esperan", agents_one: "agente trabajando", agents_many: "agentes trabajando",
+    discovery: "Descubrimiento", architecture_base: "Arquitectura base", design_kit: "Kit de diseño", guidelines: "directrices",
+    interface: "Interfaz", interface_unset: "Interfaz sin definir", github: "GitHub", local: "Solo local", language: "Idioma",
+    no_design: "Sin diseño", stack_pending: "El stack lo definirá el arquitecto en la arquitectura base.", profile: "Perfil",
+    milestones: "Hitos", no_milestones: "Aún no hay hitos. Saldrán del descubrimiento.", milestone: "hito", card: "Ficha",
+    goal: "Al terminar se puede:", accepted_count: "{a}/{b} aceptadas", no_features: "Sin funcionalidades.",
+    decisions: "Decisiones", th_decision: "Decisión", th_about: "Sobre", th_date: "Fecha", no_decisions: "Todavía no hay decisiones registradas.",
+    ok_spec: "Especificación aprobada", ok_built: "Construida y validada", ok_accepted: "Aceptada por ti",
+    criteria: "{n} criterios de aceptación", not_specified: "Sin especificar todavía", waiting_prefix: "Te espera: ",
+    waits: "Te espera", nothing_pending: "Nada pendiente de ti.", answer_terminal: "Responde en la terminal, al orquestador.",
+    open_pr: "Abrir PR #{n} ↗",
+    working_now: "Trabajando ahora", no_agents: "Ningún agente trabajando ahora mismo.", started: "empezó hace {t}",
+    last_action: "Última acción", ago: "hace {t}", stale: "Sin actividad hace {t}: puede estar atascado o la sesión se cerró.",
+    no_items_yet: "Preparándose (aún no ha marcado ningún elemento)", unassigned: "En curso sin agente identificado",
+    recently: "Terminado recientemente", nothing_recent: "Nada todavía.", next_steps: "Próximos pasos",
+    nothing_next: "Nada más hasta que respondas o terminen los agentes.",
+    milestone_h: "Hito", features: "Funcionalidades", tasks: "Tareas", no_tasks_yet: "Aún no hay hitos ni tareas.",
+    tasks_count: "{a}/{b} tareas", no_tasks: "sin tareas", no_features_in: "Sin funcionalidades en este hito.",
+    review_ok: "Revisión OK", review_ko: "Revisión KO", attempt: "intento {a}/{b}", depends: "depende de {x}",
+    load_error: "No se pudo cargar.", about: "Sobre {x} · {d}", close: "Cerrar", project: "Proyecto",
+    act_start: "Arrancando", act_edit: "Editando {t}", act_write: "Escribiendo {t}", act_read: "Leyendo {t}",
+    act_search: "Buscando «{t}»", act_web: "Consultando la web", act_agent: "Lanzando un agente",
+  },
+  en: {
+    panel: "Control panel", product: "Product", construction: "Construction", connecting: "connecting…",
+    live: "live", offline: "no connection to factory panel",
+    alert_one: "item waiting for you", alert_many: "items waiting for you", agents_one: "agent working", agents_many: "agents working",
+    discovery: "Discovery", architecture_base: "Architecture base", design_kit: "Design kit", guidelines: "guidelines",
+    interface: "Interface", interface_unset: "Interface not set", github: "GitHub", local: "Local only", language: "Language",
+    no_design: "No design", stack_pending: "The architect will define the stack in the architecture base.", profile: "Profile",
+    milestones: "Milestones", no_milestones: "No milestones yet. They will come out of discovery.", milestone: "milestone", card: "Details",
+    goal: "When done you can:", accepted_count: "{a}/{b} accepted", no_features: "No features.",
+    decisions: "Decisions", th_decision: "Decision", th_about: "About", th_date: "Date", no_decisions: "No decisions recorded yet.",
+    ok_spec: "Spec approved", ok_built: "Built and validated", ok_accepted: "Accepted by you",
+    criteria: "{n} acceptance criteria", not_specified: "Not specified yet", waiting_prefix: "Waiting for you: ",
+    waits: "Waiting for you", nothing_pending: "Nothing waiting for you.", answer_terminal: "Answer the orchestrator in the terminal.",
+    open_pr: "Open PR #{n} ↗",
+    working_now: "Working now", no_agents: "No agent is working right now.", started: "started {t} ago",
+    last_action: "Last action", ago: "{t} ago", stale: "No activity for {t}: it may be stuck or the session was closed.",
+    no_items_yet: "Getting ready (no item marked yet)", unassigned: "In progress, agent unknown",
+    recently: "Recently finished", nothing_recent: "Nothing yet.", next_steps: "Next steps",
+    nothing_next: "Nothing else until you answer or the agents finish.",
+    milestone_h: "Milestone", features: "Features", tasks: "Tasks", no_tasks_yet: "No milestones or tasks yet.",
+    tasks_count: "{a}/{b} tasks", no_tasks: "no tasks", no_features_in: "No features in this milestone.",
+    review_ok: "Review OK", review_ko: "Review KO", attempt: "attempt {a}/{b}", depends: "depends on {x}",
+    load_error: "Could not load.", about: "About {x} · {d}", close: "Close", project: "Project",
+    act_start: "Starting", act_edit: "Editing {t}", act_write: "Writing {t}", act_read: "Reading {t}",
+    act_search: "Searching “{t}”", act_web: "Browsing the web", act_agent: "Launching an agent",
+  }
 };
-const MILESTONE_PHASE = { proposed: ["Propuesto", "gray"], approved: ["En marcha", "amber"], closed: ["Cerrado", "green"] };
-const STATUS = {
-  queued: ["En cola", "gray"], in_progress: ["Trabajando", "amber"],
-  waiting_human: ["Te espera", "red"], blocked: ["Bloqueada", "red"]
+const LABELS = {
+  es: {
+    feature_phase: { defined: ["En definición", "gray"], specified: ["Especificación aprobada", "blue"], building: ["En construcción", "amber"],
+      validated: ["Validada · falta tu OK", "violet"], accepted: ["Aceptada", "green"], postponed: ["Aplazada", "gray"], discarded: ["Descartada", "gray"] },
+    milestone_phase: { proposed: ["Propuesto", "gray"], approved: ["En marcha", "amber"], closed: ["Cerrado", "green"] },
+    task_phase: { pending: ["Pendiente", "gray"], development: ["Desarrollo", "amber"], in_review: ["En revisión", "violet"], done: ["Hecha", "green"], discarded: ["Descartada", "gray"] },
+    design_phase: { pending: ["Pendiente de aprobar", "gray"], approved: ["Aprobado", "green"] },
+    status: { queued: ["En cola", "gray"], in_progress: ["Trabajando", "amber"], waiting_human: ["Te espera", "red"], blocked: ["Bloqueada", "red"] },
+    kind: { cross_cutting: ["transversal", "blue"], fix: ["corrección", "amber"], hotfix: ["hotfix", "amber"] },
+    artifact: { vision: "Visión", roadmap: "Roadmap", architecture: "Arquitectura", spec: "Especificación", rules: "Reglas de negocio",
+      mockup: "Maqueta ↗", design: "Diseño técnico", validation: "Validación", review: "Revisión", batch: "Lote",
+      brand_guide: "Guía de marca", design_kit: "Kit de diseño ↗" },
+    mode: { discovery: "Descubrimiento", base: "Arquitectura base", approve_milestone_first: "Aprobar hito (con visión, roadmap y arquitectura)",
+      approve_milestone: "Aprobar hito", roadmap_review: "Revisar roadmap", open_release: "Abrir release", milestone: "Plan técnico del hito",
+      specify: "Especificar", mockup: "Maqueta", approve_spec: "Aprobar especificación", feature: "Diseño técnico y tareas", fix: "Correcciones",
+      feature_validation: "Validar funcionalidad", implement: "Implementar", resume: "Retomar", hotfix: "Hotfix", task_review: "Revisar PR",
+      approve_merge: "Aprobar y fusionar PR", present_batch: "Lote de aceptación", close_milestone: "Cerrar hito",
+      choose_design: "Elegir nivel de diseño", design_system: "Kit de diseño", approve_design: "Aprobar kit de diseño", revise_design: "Revisar kit de diseño" },
+    agent: { orchestrator: "Orquestador", analyst: "Analista", prototyper: "Prototipador", architect: "Arquitecto", developer: "Desarrollador", validator: "Validador" },
+    priority: { must: "imprescindible", should: "deseable", later: "más adelante" },
+    level: { full: "completo", guidelines: "directrices", none: "sin diseño" },
+    section: { "Description": "Descripción", "Pending questions": "Preguntas pendientes", "Resolved questions": "Preguntas resueltas", "History": "Historial" },
+    field: { phase: "Fase", status: "Situación", reason: "Motivo", goal: "Objetivo", branch: "Rama", planned: "Planificado", closing: "Cierre",
+      pr: "PR", created: "Creado", updated: "Actualizado", milestone: "Hito", priority: "Prioridad", version: "Versión", depends_on: "Depende de",
+      needs_mockup: "Necesita maqueta", validation: "Validación", kind: "Clase", parent: "Padre", package: "Paquete", agent: "Agente",
+      attempts: "Intentos", review: "Revisión", level: "Nivel", description: "Descripción", main_branch: "Rama principal", remote: "Remoto",
+      interface: "Interfaz", language: "Idioma", max_attempts: "Intentos máximos", discovery: "Descubrimiento", architecture: "Arquitectura" },
+  },
+  en: {
+    feature_phase: { defined: ["Defined", "gray"], specified: ["Spec approved", "blue"], building: ["Building", "amber"],
+      validated: ["Validated · needs your OK", "violet"], accepted: ["Accepted", "green"], postponed: ["Postponed", "gray"], discarded: ["Discarded", "gray"] },
+    milestone_phase: { proposed: ["Proposed", "gray"], approved: ["In progress", "amber"], closed: ["Closed", "green"] },
+    task_phase: { pending: ["Pending", "gray"], development: ["Development", "amber"], in_review: ["In review", "violet"], done: ["Done", "green"], discarded: ["Discarded", "gray"] },
+    design_phase: { pending: ["Awaiting approval", "gray"], approved: ["Approved", "green"] },
+    status: { queued: ["Queued", "gray"], in_progress: ["Working", "amber"], waiting_human: ["Waiting for you", "red"], blocked: ["Blocked", "red"] },
+    kind: { cross_cutting: ["cross-cutting", "blue"], fix: ["fix", "amber"], hotfix: ["hotfix", "amber"] },
+    artifact: { vision: "Vision", roadmap: "Roadmap", architecture: "Architecture", spec: "Spec", rules: "Business rules",
+      mockup: "Mockup ↗", design: "Technical design", validation: "Validation", review: "Review", batch: "Batch",
+      brand_guide: "Brand guide", design_kit: "Design kit ↗" },
+    mode: { discovery: "Discovery", base: "Architecture base", approve_milestone_first: "Approve milestone (with vision, roadmap and architecture)",
+      approve_milestone: "Approve milestone", roadmap_review: "Review roadmap", open_release: "Open release", milestone: "Milestone technical plan",
+      specify: "Specify", mockup: "Mockup", approve_spec: "Approve spec", feature: "Technical design and tasks", fix: "Fixes",
+      feature_validation: "Validate feature", implement: "Implement", resume: "Resume", hotfix: "Hotfix", task_review: "Review PR",
+      approve_merge: "Approve and merge PR", present_batch: "Acceptance batch", close_milestone: "Close milestone",
+      choose_design: "Choose design level", design_system: "Design kit", approve_design: "Approve design kit", revise_design: "Revise design kit" },
+    agent: { orchestrator: "Orchestrator", analyst: "Analyst", prototyper: "Prototyper", architect: "Architect", developer: "Developer", validator: "Validator" },
+    priority: { must: "must", should: "should", later: "later" },
+    level: { full: "full", guidelines: "guidelines", none: "no design" },
+    section: { "Description": "Description", "Pending questions": "Pending questions", "Resolved questions": "Resolved questions", "History": "History" },
+    field: { phase: "Phase", status: "Status", reason: "Reason", goal: "Goal", branch: "Branch", planned: "Planned", closing: "Closing",
+      pr: "PR", created: "Created", updated: "Updated", milestone: "Milestone", priority: "Priority", version: "Version", depends_on: "Depends on",
+      needs_mockup: "Needs mockup", validation: "Validation", kind: "Kind", parent: "Parent", package: "Package", agent: "Agent",
+      attempts: "Attempts", review: "Review", level: "Level", description: "Description", main_branch: "Main branch", remote: "Remote",
+      interface: "Interface", language: "Language", max_attempts: "Max attempts", discovery: "Discovery", architecture: "Architecture" },
+  }
 };
-const KIND = { cross_cutting: ["transversal", "blue"], fix: ["corrección", "amber"], hotfix: ["hotfix", "amber"] };
-const COLUMNS = [["pending", "Pendiente"], ["development", "Desarrollo"], ["in_review", "En revisión"], ["done", "Hecha"]];
-const ARTIFACT_LABEL = {
-  vision: "Visión", roadmap: "Roadmap", architecture: "Arquitectura", spec: "Especificación",
-  rules: "Reglas de negocio", mockup: "Maqueta ↗", design: "Diseño técnico", validation: "Validación",
-  review: "Revisión", batch: "Lote"
-};
-const MODE_LABEL = {
-  discovery: "Descubrimiento", base: "Arquitectura base", approve_milestone_first: "Aprobar hito (con visión, roadmap y arquitectura)",
-  approve_milestone: "Aprobar hito", roadmap_review: "Revisar roadmap", open_release: "Abrir release",
-  milestone: "Plan técnico del hito", specify: "Especificar", mockup: "Maqueta", approve_spec: "Aprobar especificación",
-  feature: "Diseño técnico y tareas", fix: "Correcciones", feature_validation: "Validar funcionalidad",
-  implement: "Implementar", resume: "Retomar", hotfix: "Hotfix", task_review: "Revisar PR",
-  approve_merge: "Aprobar y fusionar PR", present_batch: "Lote de aceptación", close_milestone: "Cerrar hito"
-};
-const AGENT_LABEL = {
-  orchestrator: "orquestador", analyst: "analista", prototyper: "prototipador", architect: "arquitecto",
-  developer: "desarrollador", validator: "validador"
-};
-const PRIORITY_LABEL = { must: "imprescindible", should: "deseable", later: "más adelante" };
+const COLUMNS = ["pending", "development", "in_review", "done"];
 const FEATURE_ORDER = ["defined", "specified", "building", "validated", "accepted"];
+const STALE_SECONDS = 300;
 
+let lang = "es", T = I18N.es, LB = LABELS.es;
 let state = null, signature = "", selectedMilestone = null, side = null;
 let view = ["product", "construction"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "product";
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const md = t => window.marked ? marked.parse(t || "") : `<pre class="plain">${esc(t)}</pre>`;
-const chip = ([t, c]) => `<span class="chip c-${c}">${esc(t)}</span>`;
+const t = (key, vars = {}) => (T[key] || key).replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+const md = text => window.marked ? marked.parse(text || "") : `<pre class="plain">${esc(text)}</pre>`;
+const chip = pair => pair ? `<span class="chip c-${pair[1]}">${esc(pair[0])}</span>` : "";
 const itemsOf = type => state.items.filter(e => e.meta.type === type);
-const byId = id => id === "project" ? state.project : state.items.find(e => e.meta.id === id);
-const agentLabel = a => AGENT_LABEL[a] || a;
+const byId = id => id === "project" ? state.project : id === "design" ? state.design : state.items.find(e => e.meta.id === id);
+const agentLabel = a => LB.agent[a] || a;
+const phaseLabel = m => ({ feature: LB.feature_phase, milestone: LB.milestone_phase, task: LB.task_phase, design: LB.design_phase }[m.type] || {})[m.phase] || (m.phase ? [m.phase, "gray"] : null);
+const titleOf = e => e ? (e.meta.title || e.meta.name || t("project")) : "";
 const section = (body, title) => {
   const m = (body || "").match(new RegExp(`^## ${title}\\s*$([\\s\\S]*?)(?=^## |$(?![\\s\\S]))`, "m"));
   return m ? m[1].trim() : "";
 };
+const localizeHeadings = body => (body || "").replace(/^## (Description|Pending questions|Resolved questions|History)\s*$/gm, (_, h) => `## ${LB.section[h]}`);
+
+function duration(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s} s`;
+  if (s < 3600) return `${Math.floor(s / 60)} min`;
+  return `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min`;
+}
+const secondsSince = iso => (Date.now() - Date.parse(iso)) / 1000;
 
 async function load() {
   try {
@@ -218,81 +336,97 @@ async function load() {
     if (txt !== signature) {
       signature = txt;
       state = JSON.parse(txt);
+      lang = state.language === "en" ? "en" : "es";
+      T = I18N[lang]; LB = LABELS[lang];
       render();
     }
-    $("#live").innerHTML = `<i></i>en vivo · ${esc(state.generated.slice(11))}`;
+    $("#live").innerHTML = `<i></i>${esc(t("live"))} · ${esc(state.generated.slice(11))}`;
   } catch (e) {
     $("#live").className = "live down";
-    $("#live").innerHTML = "<i></i>sin conexión con factory panel";
+    $("#live").innerHTML = `<i></i>${esc(t("offline"))}`;
   }
 }
 
 function render() {
   const p = state.project.meta;
-  document.title = `${p.name || "Proyecto"} · factory`;
-  $("#name").textContent = p.name || "Proyecto";
-  $("#subtitle").textContent = p.description || "Panel de control";
-  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.view === view));
-  const pending = [state.project, ...state.items].filter(e => ["waiting_human", "blocked"].includes(e.meta.status));
-  $("#alert-slot").innerHTML = pending.length
-    ? `<button class="alert" onclick="goTo('construction')">${pending.length} ${pending.length === 1 ? "cosa te espera" : "cosas te esperan"}</button>` : "";
+  document.documentElement.lang = lang;
+  document.title = `${p.name || t("project")} · factory`;
+  $("#name").textContent = p.name || t("project");
+  $("#subtitle").textContent = p.description || t("panel");
+  document.querySelectorAll("nav.tabs button").forEach(b => {
+    b.textContent = t(b.dataset.view);
+    b.classList.toggle("active", b.dataset.view === view);
+  });
+  const pending = [state.project, state.design, ...state.items].filter(e => ["waiting_human", "blocked"].includes(e.meta.status));
+  const working = state.activity.agents.length;
+  $("#badge-slot").innerHTML =
+    (working ? `<button class="working-badge" onclick="goTo('construction')">● ${working} ${esc(t(working === 1 ? "agents_one" : "agents_many"))}</button> ` : "") +
+    (pending.length ? `<button class="alert" onclick="goTo('construction')">${pending.length} ${esc(t(pending.length === 1 ? "alert_one" : "alert_many"))}</button>` : "");
   $("#view").innerHTML = view === "product" ? productView() : constructionView(pending);
+  tick();
   if (side) openSide(side.id, side.tab, true);
 }
 
 function goTo(v) { view = v; location.hash = v; render(); }
 document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => goTo(b.dataset.view));
 
+const opensInTab = (e, k) => /\.html$/.test((e.artifacts || {})[k] || "");
 function artifactButtons(e) {
   return Object.keys(e.artifacts || {}).map(k =>
-    k === "mockup"
-      ? `<a class="button" href="/artifact/${esc(e.artifacts[k])}" target="_blank">${ARTIFACT_LABEL[k]}</a>`
-      : `<button class="button" onclick="event.stopPropagation(); openSide('${esc(e.meta.id)}', '${k}')">${ARTIFACT_LABEL[k] || k}</button>`
+    opensInTab(e, k)
+      ? `<a class="button" href="/artifact/${esc(e.artifacts[k])}" target="_blank">${esc(LB.artifact[k] || k)}</a>`
+      : `<button class="button" onclick="event.stopPropagation(); openSide('${esc(e.meta.id)}', '${k}')">${esc(LB.artifact[k] || k)}</button>`
   ).join("");
+}
+function prButton(e) {
+  const pr = e.meta.pr;
+  return pr && state.prs_url ? `<a class="button primary" href="${esc(state.prs_url + pr)}" target="_blank" onclick="event.stopPropagation()">${esc(t("open_pr", { n: pr }))}</a>` : "";
 }
 
 /* ------------------------------------------------------------------ Product */
 function productView() {
-  const pr = state.project, p = pr.meta;
+  const pr = state.project, p = pr.meta, d = state.design.meta;
   const stack = section(pr.body, "Stack");
-  const steps = [["Descubrimiento", p.discovery === "done"], ["Arquitectura base", p.architecture === "done"]];
-  let h = `<h2>Producto</h2>
+  const steps = [[t("discovery"), p.discovery === "done"], [t("architecture_base"), p.architecture === "done"]];
+  if (d.level && d.level !== "none") steps.push([`${t("design_kit")}${d.level === "guidelines" ? ` (${t("guidelines")})` : ""}`, d.phase === "approved"]);
+  let h = `<h2>${esc(t("product"))}</h2>
   <div class="card project-head">
     <div>
-      <div class="row">${steps.map(([t, ok]) => chip([`${ok ? "✓" : "○"} ${t}`, ok ? "green" : "gray"])).join("")}
-        ${chip([p.interface ? `Interfaz: ${p.interface}` : "Interfaz sin definir", "gray"])}
-        ${chip([p.remote === "github" ? "GitHub" : "Solo local", "gray"])}
-        ${p.language ? chip([`Idioma: ${p.language}`, "gray"]) : ""}</div>
-      ${stack && !stack.startsWith("_") ? `<div class="md">${md(stack)}</div>` : `<p class="muted">El stack lo definirá el arquitecto en la arquitectura base.</p>`}
+      <div class="row">${steps.map(([label, ok]) => chip([`${ok ? "✓" : "○"} ${label}`, ok ? "green" : "gray"])).join("")}
+        ${chip([p.interface ? `${t("interface")}: ${p.interface}` : t("interface_unset"), "gray"])}
+        ${chip([p.remote === "github" ? t("github") : t("local"), "gray"])}
+        ${chip([`${t("language")}: ${lang}`, "gray"])}
+        ${d.level === "none" ? chip([t("no_design"), "gray"]) : ""}</div>
+      ${stack && !stack.startsWith("_") ? `<div class="md">${md(stack)}</div>` : `<p class="muted">${esc(t("stack_pending"))}</p>`}
     </div>
-    <div class="row">${artifactButtons(pr)}<button class="button" onclick="openSide('project')">Perfil</button></div>
+    <div class="row">${artifactButtons(pr)}${artifactButtons(state.design)}<button class="button" onclick="openSide('project')">${esc(t("profile"))}</button></div>
   </div>`;
 
   const milestones = itemsOf("milestone");
-  if (!milestones.length) h += `<h2>Hitos</h2><div class="empty">Aún no hay hitos. Saldrán del descubrimiento.</div>`;
+  if (!milestones.length) h += `<h2>${esc(t("milestones"))}</h2><div class="empty">${esc(t("no_milestones"))}</div>`;
   for (const m of milestones) {
     const fs = itemsOf("feature").filter(f => f.meta.milestone === m.meta.id);
     const alive = fs.filter(f => !["postponed", "discarded"].includes(f.meta.phase));
     const accepted = alive.filter(f => f.meta.phase === "accepted").length;
     h += `<div class="milestone">
-      <h2>${esc(m.meta.id)} · hito</h2>
-      <div class="milestone-head"><h3>${esc(m.meta.title)}</h3>${chip(MILESTONE_PHASE[m.meta.phase] || [m.meta.phase, "gray"])}
-        ${m.meta.status === "waiting_human" ? chip(["Te espera: " + m.meta.reason, "red"]) : ""}
-        <span class="spacer"></span>${artifactButtons(m)}
-        <button class="button" onclick="openSide('${m.meta.id}')">Ficha</button></div>
-      <div class="muted">Al terminar se puede: ${esc(m.meta.goal || "—")}</div>
+      <h2>${esc(m.meta.id)} · ${esc(t("milestone"))}</h2>
+      <div class="milestone-head"><h3>${esc(m.meta.title)}</h3>${chip(phaseLabel(m.meta))}
+        ${m.meta.status === "waiting_human" ? chip([t("waiting_prefix") + m.meta.reason, "red"]) : ""}
+        <span class="spacer"></span>${prButton(m)}${artifactButtons(m)}
+        <button class="button" onclick="openSide('${m.meta.id}')">${esc(t("card"))}</button></div>
+      <div class="muted">${esc(t("goal"))} ${esc(m.meta.goal || "—")}</div>
       <div class="row" style="margin-top:8px"><div class="bar" style="flex:1"><div style="width:${alive.length ? accepted / alive.length * 100 : 0}%"></div></div>
-        <span class="muted">${accepted}/${alive.length} aceptadas</span></div>
-      <div class="grid">${fs.map(featureCard).join("") || `<div class="empty">Sin funcionalidades.</div>`}</div>
+        <span class="muted">${esc(t("accepted_count", { a: accepted, b: alive.length }))}</span></div>
+      <div class="grid">${fs.map(featureCard).join("") || `<div class="empty">${esc(t("no_features"))}</div>`}</div>
     </div>`;
   }
 
-  h += `<h2>Decisiones</h2>`;
+  h += `<h2>${esc(t("decisions"))}</h2>`;
   h += state.decisions.length ? `<div class="card" style="padding:0"><table class="table">
-    <tr><th>ID</th><th>Decisión</th><th>Sobre</th><th>Fecha</th></tr>
+    <tr><th>ID</th><th>${esc(t("th_decision"))}</th><th>${esc(t("th_about"))}</th><th>${esc(t("th_date"))}</th></tr>
     ${[...state.decisions].reverse().map(d => `<tr class="clickable" onclick="openDecision('${esc(d.meta.id)}')">
       <td class="id">${esc(d.meta.id)}</td><td>${esc(d.meta.title)}</td><td class="id">${esc(d.meta.ref || "—")}</td><td class="muted">${esc(d.meta.date)}</td></tr>`).join("")}
-  </table></div>` : `<div class="empty">Todavía no hay decisiones registradas.</div>`;
+  </table></div>` : `<div class="empty">${esc(t("no_decisions"))}</div>`;
   return h;
 }
 
@@ -300,103 +434,163 @@ function featureCard(f) {
   const m = f.meta, i = FEATURE_ORDER.indexOf(m.phase);
   const waiting = m.status === "waiting_human";
   const oks = [
-    ["Especificación aprobada", i >= 1, m.phase === "defined" && waiting],
-    ["Construida y validada", i >= 3, false],
-    ["Aceptada por ti", i >= 4, m.phase === "validated" && waiting],
+    [t("ok_spec"), i >= 1, m.phase === "defined" && waiting],
+    [t("ok_built"), i >= 3, false],
+    [t("ok_accepted"), i >= 4, m.phase === "validated" && waiting],
   ];
   return `<div class="card feature ${waiting ? "waiting" : ""}">
-    <div class="row"><span class="id">${esc(m.id)}</span>${chip(FEATURE_PHASE[m.phase] || [m.phase, "gray"])}
-      ${m.priority && m.priority !== "must" ? chip([PRIORITY_LABEL[m.priority] || m.priority, "gray"]) : ""}</div>
+    <div class="row"><span class="id">${esc(m.id)}</span>${chip(phaseLabel(m))}
+      ${m.priority && m.priority !== "must" ? chip([LB.priority[m.priority] || m.priority, "gray"]) : ""}</div>
     <h4 onclick="openSide('${esc(m.id)}')">${esc(m.title)}</h4>
-    ${waiting ? `<div>${chip(["Te espera: " + (m.reason || ""), "red"])}</div>` : ""}
-    <ul class="oks">${oks.map(([t, yes, now]) => `<li class="${yes ? "yes" : ""} ${now ? "now" : ""}"><span class="tick">${yes ? "✓" : now ? "!" : ""}</span>${t}</li>`).join("")}</ul>
-    <div class="row">${f.criteria != null ? `<span class="muted">${f.criteria} criterios de aceptación</span>` : `<span class="muted">Sin especificar todavía</span>`}</div>
+    ${waiting ? `<div>${chip([t("waiting_prefix") + (m.reason || ""), "red"])}</div>` : ""}
+    <ul class="oks">${oks.map(([label, yes, now]) => `<li class="${yes ? "yes" : ""} ${now ? "now" : ""}"><span class="tick">${yes ? "✓" : now ? "!" : ""}</span>${esc(label)}</li>`).join("")}</ul>
+    <div class="row"><span class="muted">${esc(f.criteria != null ? t("criteria", { n: f.criteria }) : t("not_specified"))}</span></div>
     <div class="row" style="margin-top:10px">${artifactButtons(f)}</div>
   </div>`;
 }
 
 /* ------------------------------------------------------------------ Construction */
 function constructionView(pending) {
-  let h = `<h2>Te espera</h2>`;
+  let h = `<h2>${esc(t("waits"))}</h2>`;
   h += pending.length ? pending.map(e => {
     const m = e.meta, questions = section(e.body, "Pending questions");
     return `<div class="card attention">
-      <div class="row"><span class="id">${esc(m.id)}</span>${chip(STATUS[m.status])}<b>${esc(m.title || m.name)}</b>
-        <span class="spacer"></span>${artifactButtons(e)}<button class="button" onclick="openSide('${esc(m.id)}')">Ficha</button></div>
+      <div class="row"><span class="id">${esc(m.id)}</span>${chip(LB.status[m.status])}<b>${esc(titleOf(e))}</b>
+        <span class="spacer"></span>${prButton(e)}${artifactButtons(e)}<button class="button" onclick="openSide('${esc(m.id)}')">${esc(t("card"))}</button></div>
       <div style="margin-top:6px">${esc(m.reason || "")}</div>
       ${questions ? `<div class="question md">${md(questions)}</div>` : ""}
-      <div class="muted" style="margin-top:8px">Responde en la terminal, al orquestador.</div>
+      <div class="muted small" style="margin-top:8px">${esc(t("answer_terminal"))}</div>
     </div>`;
-  }).join("") : `<div class="empty">Nada pendiente de ti.</div>`;
+  }).join("") : `<div class="empty">${esc(t("nothing_pending"))}</div>`;
 
-  const working = [state.project, ...state.items].filter(e => e.meta.status === "in_progress");
-  h += `<div class="two"><div><h2>Trabajando ahora</h2><div class="card">${working.length
-    ? `<ul class="plain-list">${working.map(e => `<li><span class="pulse"></span><span class="id">${esc(e.meta.id)}</span>
-        <span>${esc(e.meta.title || "Proyecto")}${e.meta.agent ? ` <span class="muted">· ${esc(agentLabel(e.meta.agent))}</span>` : ""}</span></li>`).join("")}</ul>`
-    : `<span class="muted">Ningún agente trabajando.</span>`}</div></div>
-    <div><h2>Próximos pasos</h2><div class="card">${state.actions.length
+  h += `<h2>${esc(t("working_now"))}</h2>` + workingNow();
+
+  const recent = state.activity.recent.slice(0, 5);
+  h += `<div class="two"><div><h2>${esc(t("next_steps"))}</h2><div class="card">${state.actions.length
     ? `<ul class="plain-list">${state.actions.map(a => `<li><span class="id">${esc(a.id)}</span>
-        <span>${esc(MODE_LABEL[a.mode] || a.mode)} <span class="muted">· ${esc(agentLabel(a.who.replace("launch ", "")))}</span></span></li>`).join("")}</ul>`
-    : `<span class="muted">Nada más hasta que respondas o terminen los agentes.</span>`}</div></div></div>`;
+        <span>${esc(LB.mode[a.mode] || a.mode)} <span class="muted">· ${esc(agentLabel(a.who.replace("launch ", "")))}</span></span></li>`).join("")}</ul>`
+    : `<span class="muted">${esc(t("nothing_next"))}</span>`}</div></div>
+    <div><h2>${esc(t("recently"))}</h2><div class="card">${recent.length
+    ? `<ul class="plain-list">${recent.map(r => `<li class="role-${esc(r.role)}"><b style="color:var(--role)">${esc(agentLabel(r.role))}</b>
+        <span class="id">${esc((r.items || []).join(", ") || "—")}</span>
+        <span class="muted small since" data-since="${esc(r.ended)}" data-fmt="ago"></span></li>`).join("")}</ul>`
+    : `<span class="muted">${esc(t("nothing_recent"))}</span>`}</div></div></div>`;
 
   const milestones = itemsOf("milestone");
   const active = milestones.find(x => x.meta.phase === "approved") || milestones[milestones.length - 1];
   if (!selectedMilestone || !byId(selectedMilestone)) selectedMilestone = active ? active.meta.id : null;
-  const hotfixes = itemsOf("task").filter(t => t.meta.kind === "hotfix");
-  if (!selectedMilestone && !hotfixes.length) return h + `<h2>Tareas</h2><div class="empty">Aún no hay hitos ni tareas.</div>`;
+  const hotfixes = itemsOf("task").filter(x => x.meta.kind === "hotfix");
+  if (!selectedMilestone && !hotfixes.length) return h + `<h2>${esc(t("tasks"))}</h2><div class="empty">${esc(t("no_tasks_yet"))}</div>`;
 
   if (selectedMilestone) {
     const ms = byId(selectedMilestone);
-    h += `<h2>Hito</h2><div class="row">
+    h += `<h2>${esc(t("milestone_h"))}</h2><div class="row">
       <div class="selector">${milestones.map(x => `<button class="${x.meta.id === selectedMilestone ? "active" : ""}" onclick="selectedMilestone='${x.meta.id}'; render()">${esc(x.meta.id)} · ${esc(x.meta.title)}</button>`).join("")}</div>
-      <span class="spacer"></span>${chip(MILESTONE_PHASE[ms.meta.phase] || [ms.meta.phase, "gray"])}
+      <span class="spacer"></span>${chip(phaseLabel(ms.meta))}
       ${ms.meta.branch ? `<span class="id">${esc(ms.meta.branch)}</span>` : ""}</div>`;
 
-    const tasks = itemsOf("task").filter(t => t.meta.milestone === selectedMilestone && t.meta.kind !== "hotfix");
+    const tasks = itemsOf("task").filter(x => x.meta.milestone === selectedMilestone && x.meta.kind !== "hotfix");
     const fs = itemsOf("feature").filter(f => f.meta.milestone === selectedMilestone);
-    h += `<h2>Funcionalidades</h2>`;
+    h += `<h2>${esc(t("features"))}</h2>`;
     h += fs.length ? `<div class="feature-progress">${fs.map(f => {
-      const ts = tasks.filter(t => t.meta.parent === f.meta.id && t.meta.phase !== "discarded");
-      const done = ts.filter(t => t.meta.phase === "done").length;
+      const ts = tasks.filter(x => x.meta.parent === f.meta.id && x.meta.phase !== "discarded");
+      const done = ts.filter(x => x.meta.phase === "done").length;
       return `<div class="card" onclick="openSide('${esc(f.meta.id)}')">
-        <div class="row"><span class="id">${esc(f.meta.id)}</span>${chip(FEATURE_PHASE[f.meta.phase] || [f.meta.phase, "gray"])}</div>
+        <div class="row"><span class="id">${esc(f.meta.id)}</span>${chip(phaseLabel(f.meta))}</div>
         <div style="margin:4px 0 6px;font-weight:600">${esc(f.meta.title)}</div>
         <div class="row"><div class="bar" style="flex:1"><div style="width:${ts.length ? done / ts.length * 100 : 0}%"></div></div>
-        <span class="muted">${ts.length ? `${done}/${ts.length} tareas` : "sin tareas"}</span></div></div>`;
-    }).join("")}</div>` : `<div class="empty">Sin funcionalidades en este hito.</div>`;
+        <span class="muted">${esc(ts.length ? t("tasks_count", { a: done, b: ts.length }) : t("no_tasks"))}</span></div></div>`;
+    }).join("")}</div>` : `<div class="empty">${esc(t("no_features_in"))}</div>`;
 
-    h += `<h2>Tareas</h2>` + kanban(tasks);
+    h += `<h2>${esc(t("tasks"))}</h2>` + kanban(tasks);
   }
   if (hotfixes.length) h += `<h2>Hotfix</h2>` + kanban(hotfixes);
   return h;
 }
 
+function actionText(a) {
+  const target = a && a.target ? a.target : "";
+  switch (a && a.tool) {
+    case "start": return t("act_start");
+    case "Edit": case "NotebookEdit": return t("act_edit", { t: target });
+    case "Write": return t("act_write", { t: target });
+    case "Read": return t("act_read", { t: target });
+    case "Grep": case "Glob": return t("act_search", { t: target });
+    case "WebFetch": case "WebSearch": return t("act_web");
+    case "Agent": return t("act_agent");
+    case "Bash": return target;
+    default: return a && a.tool ? `${a.tool} ${target}`.trim() : "";
+  }
+}
+
+function workingNow() {
+  const agents = state.activity.agents;
+  const listed = new Set(agents.flatMap(a => a.items || []));
+  const orphans = [state.project, state.design, ...state.items].filter(e => e.meta.status === "in_progress" && !listed.has(e.meta.id));
+  if (!agents.length && !orphans.length) return `<div class="empty">${esc(t("no_agents"))}</div>`;
+  let h = agents.length ? `<div class="agents">${agents.map(a => {
+    const items = (a.items || []).map(id => byId(id)).filter(Boolean);
+    return `<div class="card agent role-${esc(a.role)}" data-last-seen="${esc(a.last_seen || a.started)}">
+      <div class="agent-head"><span class="pulse"></span><b>${esc(agentLabel(a.role))}</b>
+        <span class="spacer"></span><span class="muted small since" data-since="${esc(a.started)}" data-fmt="started"></span></div>
+      ${items.length ? `<ul>${items.map(e => `<li onclick="openSide('${esc(e.meta.id)}')"><span class="id">${esc(e.meta.id)}</span>
+        <span class="title-link">${esc(titleOf(e))}</span> ${chip(phaseLabel(e.meta))}</li>`).join("")}</ul>`
+        : `<p class="muted small">${esc(t("no_items_yet"))}</p>`}
+      <div class="action" title="${esc(actionText(a.action))}">${esc(t("last_action"))}: ${esc(actionText(a.action))}
+        · <span class="since" data-since="${esc(a.last_seen || a.started)}" data-fmt="ago"></span></div>
+      <div class="warn" hidden></div>
+    </div>`;
+  }).join("")}</div>` : "";
+  if (orphans.length) {
+    h += `<div class="card" style="margin-top:12px"><div class="muted small" style="margin-bottom:6px">${esc(t("unassigned"))}</div>
+      <ul class="plain-list">${orphans.map(e => `<li style="cursor:pointer" onclick="openSide('${esc(e.meta.id)}')"><span class="pulse" style="color:var(--amber)"></span>
+        <span class="id">${esc(e.meta.id)}</span><span>${esc(titleOf(e))}</span></li>`).join("")}</ul></div>`;
+  }
+  return h;
+}
+
+// Keeps relative times and the stale warning fresh between state refreshes.
+function tick() {
+  document.querySelectorAll(".since").forEach(el => {
+    const s = secondsSince(el.dataset.since);
+    if (!isNaN(s)) el.textContent = t(el.dataset.fmt === "started" ? "started" : "ago", { t: duration(s) });
+  });
+  document.querySelectorAll(".agent[data-last-seen]").forEach(el => {
+    const idle = secondsSince(el.dataset.lastSeen);
+    const stale = idle > STALE_SECONDS;
+    el.classList.toggle("stale", stale);
+    const warn = el.querySelector(".warn");
+    warn.hidden = !stale;
+    if (stale) warn.textContent = t("stale", { t: duration(idle) });
+  });
+}
+setInterval(tick, 1000);
+
 function kanban(tasks) {
-  const alive = tasks.filter(t => t.meta.phase !== "discarded");
-  return `<div class="kanban">${COLUMNS.map(([phase, title]) => {
-    const ts = alive.filter(t => t.meta.phase === phase);
-    return `<div class="column"><h5>${title}<span class="muted">${ts.length}</span></h5>${ts.map(taskCard).join("")}</div>`;
+  const alive = tasks.filter(x => x.meta.phase !== "discarded");
+  return `<div class="kanban">${COLUMNS.map(phase => {
+    const ts = alive.filter(x => x.meta.phase === phase);
+    return `<div class="column"><h5>${esc(LB.task_phase[phase][0])}<span class="muted">${ts.length}</span></h5>${ts.map(taskCard).join("")}</div>`;
   }).join("")}</div>`;
 }
 
-function taskCard(t) {
-  const m = t.meta;
+function taskCard(task) {
+  const m = task.meta;
   const cls = { in_progress: "working", waiting_human: "waiting", blocked: "blocked" }[m.status] || "";
   const pr = m.pr ? (state.prs_url ? `<a href="${esc(state.prs_url + m.pr)}" target="_blank" onclick="event.stopPropagation()">PR #${esc(m.pr)}</a>` : `PR #${esc(m.pr)}`) : "";
-  const review = m.review === "ok" ? chip(["Revisión OK", "green"]) : m.review === "ko" ? chip(["Revisión KO", "red"]) : "";
+  const review = m.review === "ok" ? chip([t("review_ok"), "green"]) : m.review === "ko" ? chip([t("review_ko"), "red"]) : "";
   return `<div class="task ${cls}" onclick="openSide('${esc(m.id)}')">
     <div class="row"><span class="id">${esc(m.id)}</span>
-      ${KIND[m.kind] ? chip(KIND[m.kind]) : ""}
-      ${m.status && m.status !== "queued" ? chip(STATUS[m.status] || [m.status, "gray"]) : ""}</div>
+      ${chip(LB.kind[m.kind])}
+      ${m.status && m.status !== "queued" ? chip(LB.status[m.status]) : ""}</div>
     <div class="title">${esc(m.title)}</div>
-    ${m.reason ? `<div class="muted" style="font-size:12px;margin-bottom:6px">${esc(m.reason)}</div>` : ""}
+    ${m.reason ? `<div class="muted small" style="margin-bottom:6px">${esc(m.reason)}</div>` : ""}
     <div class="meta">
       ${m.parent && m.parent !== "-" ? `<span class="id">${esc(m.parent)}</span>` : ""}
       ${m.package ? `<span>${esc(m.package)}</span>` : ""}
-      ${m.agent ? `<span>· ${esc(agentLabel(m.agent))}</span>` : ""}
-      ${Number(m.attempts) > 0 ? chip([`intento ${m.attempts}/${state.max_attempts}`, Number(m.attempts) >= state.max_attempts ? "red" : "gray"]) : ""}
+      ${Number(m.attempts) > 0 ? chip([t("attempt", { a: m.attempts, b: state.max_attempts }), Number(m.attempts) >= state.max_attempts ? "red" : "gray"]) : ""}
       ${review} ${pr}
-      ${(m.depends_on || []).length && m.phase === "pending" ? `<span>depende de ${esc(m.depends_on.join(", "))}</span>` : ""}
+      ${(m.depends_on || []).length && m.phase === "pending" ? `<span>${esc(t("depends", { x: m.depends_on.join(", ") }))}</span>` : ""}
     </div>
   </div>`;
 }
@@ -405,10 +599,10 @@ function taskCard(t) {
 async function openSide(id, tab = "card", refresh = false) {
   const e = byId(id);
   if (!e) { closeSide(); return; }
-  if (tab === "mockup") { window.open(`/artifact/${e.artifacts.mockup}`, "_blank"); return; }
+  if (tab !== "card" && opensInTab(e, tab)) { window.open(`/artifact/${e.artifacts[tab]}`, "_blank"); return; }
   side = { id, tab };
   const m = e.meta;
-  const tabs = [["card", "Ficha"], ...Object.keys(e.artifacts || {}).map(k => [k, ARTIFACT_LABEL[k] || k])];
+  const tabs = [["card", t("card")], ...Object.keys(e.artifacts || {}).map(k => [k, LB.artifact[k] || k])];
   let body;
   if (tab === "card") {
     body = itemCard(e);
@@ -416,45 +610,54 @@ async function openSide(id, tab = "card", refresh = false) {
     try {
       const r = await fetch(`/artifact/${e.artifacts[tab]}`, { cache: "no-store" });
       body = `<div class="md">${md(await r.text())}</div>`;
-    } catch (err) { body = `<div class="empty">No se pudo cargar.</div>`; }
+    } catch (err) { body = `<div class="empty">${esc(t("load_error"))}</div>`; }
   }
   const scroll = refresh && $(".side-body") ? $(".side-body").scrollTop : 0;
-  $("#side-slot").innerHTML = sideHtml(m, tabs, tab, body);
+  $("#side-slot").innerHTML = sideHtml(m, tabs, tab, body, prButton(e));
   if (refresh) $(".side-body").scrollTop = scroll;
 }
 
-function sideHtml(m, tabs, tab, body) {
+function sideHtml(m, tabs, tab, body, extra = "") {
   const id = m.id;
-  const phases = m.type === "feature" ? FEATURE_PHASE : m.type === "milestone" ? MILESTONE_PHASE : {};
   return `<div class="veil" onclick="closeSide()"></div>
   <aside class="side">
     <div class="side-head"><div style="flex:1"><div class="row"><span class="id">${esc(id)}</span>
-      ${m.phase ? chip(phases[m.phase] || [m.phase, "gray"]) : ""}
-      ${m.status ? chip(STATUS[m.status] || [m.status, "gray"]) : ""}</div>
+      ${chip(phaseLabel(m))}
+      ${m.status ? chip(LB.status[m.status]) : ""}${extra}</div>
       <h3>${esc(m.title || m.name || id)}</h3></div>
-      <button class="close" onclick="closeSide()" aria-label="Cerrar">×</button></div>
-    <div class="side-tabs">${tabs.map(([k, t]) => `<button class="button ${k === tab ? "active" : ""}" onclick="openSide('${esc(id)}', '${k}')">${t}</button>`).join("")}</div>
+      <button class="close" onclick="closeSide()" aria-label="${esc(t("close"))}">×</button></div>
+    <div class="side-tabs">${tabs.map(([k, label]) => `<button class="button ${k === tab ? "active" : ""}" onclick="openSide('${esc(id)}', '${k}')">${esc(label)}</button>`).join("")}</div>
     <div class="side-body">${body}</div>
   </aside>`;
+}
+
+function fieldValue(m, k, v) {
+  if (k === "pr" && state.prs_url) return `<a href="${esc(state.prs_url + v)}" target="_blank">#${esc(v)}</a>`;
+  const maps = { phase: phaseLabel(m), status: LB.status[v], kind: LB.kind[v], priority: LB.priority[v] ? [LB.priority[v]] : null,
+                 level: LB.level[v] ? [LB.level[v]] : null, agent: LB.agent[v] ? [LB.agent[v]] : null };
+  if (maps[k]) return esc(maps[k][0]);
+  return esc(Array.isArray(v) ? v.join(", ") : v);
 }
 
 function itemCard(e) {
   const m = e.meta;
   const fields = Object.entries(m).filter(([k, v]) => !["id", "type", "title", "name"].includes(k) && v !== "" && !(Array.isArray(v) && !v.length));
-  const h = `<table class="table" style="margin-top:12px">${fields.map(([k, v]) => `<tr><th style="width:150px">${esc(k)}</th><td>${
-    k === "pr" && state.prs_url ? `<a href="${esc(state.prs_url + v)}" target="_blank">#${esc(v)}</a>` : esc(Array.isArray(v) ? v.join(", ") : v)}</td></tr>`).join("")}</table>`;
-  return h + `<div class="md">${md(e.body.replace(/^\s*# .*\n/, ""))}</div>`;
+  const table = `<table class="table" style="margin-top:12px">${fields.map(([k, v]) =>
+    `<tr><th style="width:160px">${esc(LB.field[k] || k)}</th><td>${fieldValue(m, k, v)}</td></tr>`).join("")}</table>`;
+  return table + `<div class="md">${md(localizeHeadings(e.body).replace(/^\s*# .*\n/, ""))}</div>`;
 }
 
 function openDecision(id) {
   const d = state.decisions.find(x => x.meta.id === id);
   side = null;
-  $("#side-slot").innerHTML = sideHtml({ id, title: d.meta.title }, [], "", `<p class="muted">Sobre ${esc(d.meta.ref || "—")} · ${esc(d.meta.date)}</p><div class="md">${md(d.body.replace(/^\s*# .*\n/, ""))}</div>`);
+  $("#side-slot").innerHTML = sideHtml({ id, title: d.meta.title }, [], "",
+    `<p class="muted">${esc(t("about", { x: d.meta.ref || "—", d: d.meta.date }))}</p><div class="md">${md(d.body.replace(/^\s*# .*\n/, ""))}</div>`);
 }
 
 function closeSide() { side = null; $("#side-slot").innerHTML = ""; }
 document.addEventListener("keydown", ev => { if (ev.key === "Escape") closeSide(); });
 
+$("#live").innerHTML = `<i></i>${esc(t("connecting"))}`;
 load();
 setInterval(load, 2500);
 </script>
