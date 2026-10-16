@@ -58,6 +58,14 @@ Al arrancar, el orquestador abre el panel en el navegador (`http://127.0.0.1:876
 - **Producto**: lo definido y lo aprobado, con los tres OK de cada funcionalidad y acceso a especificaciones, maquetas, diseños, validaciones y decisiones.
 - **Construcción**: lo que te espera (con botón directo a la PR cuando toca fusionar), los agentes trabajando ahora (rol, elementos y última acción, con aviso si un agente lleva más de 5 minutos sin actividad), los próximos pasos, lo terminado recientemente y el kanban de tareas.
 
+### Decidir y hablar desde el panel
+
+- **Botones en «Te espera»**: aprobar, pedir cambios (con comentario), aplazar, descartar, «ya la he fusionado», aceptar el lote y las opciones de las preguntas de los agentes. El panel aplica la decisión al momento (estado y registro de decisión) y avisa al orquestador.
+- **Diálogo con el orquestador** (abajo): ves sus mensajes y le escribes sin ir a la terminal.
+- **Aviso sonoro** (🔔 arriba) cuando aparece algo nuevo que te espera.
+
+Cómo llega al orquestador: un monitor del plugin vigila `.factory/inbox.jsonl` y le pasa cada acción como aviso `[factory panel] …`, que lo despierta. Solo funciona en sesiones interactivas. La sesión sigue viviendo en la terminal: los permisos de herramientas se siguen aprobando allí.
+
 Se actualiza solo. Para levantarlo a mano, desde la carpeta del proyecto: `~/Documents/projects/dev-factory/bin/factory panel --open`. Las maquetas se abren en una pestaña nueva. El renderizado de Markdown usa `marked` desde jsDelivr; sin conexión, los documentos se muestran como texto plano.
 
 ## Kit de diseño

@@ -36,7 +36,7 @@ Antes de nada, lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md`: describe `.fac
 4. **Panel de control** (en los dos casos, en cuanto exista `.factory/`):
    - Comprueba si ya está en marcha con `curl -s -o /dev/null -w '%{http_code}' "$(cat .factory/panel.url 2>/dev/null)"`.
    - Si no responde 200, arráncalo **en segundo plano** (Bash con `run_in_background`) con `factory panel --open`.
-   - Dile al humano la URL en una línea: ahí verá el producto y la construcción mientras habla contigo.
+   - Dile al humano la URL en una línea: ahí verá el producto y la construcción, podrá decidir con botones y hablar contigo desde el diálogo inferior.
 
 ## Bucle de trabajo
 
@@ -71,17 +71,45 @@ Si un elemento lleva `in_progress` pero no hay ningún agente tuyo trabajando en
 
 - Los agentes leen su contexto en `.factory/`. No les copies artefactos en el prompt.
 
-## Presentar al humano
+## Presentar al humano: el panel primero
 
-- Para decidir, usa siempre `AskUserQuestion`: hasta 4 preguntas por llamada y de 2 a 4 opciones cada una. La opción recomendada va primero, con «(Recomendada)» en la etiqueta y el motivo en la descripción. El humano siempre puede responder con texto libre.
-- **Antes de presentar una aprobación**, marca el elemento con `factory status <ID> waiting_human --reason "<qué se espera>"`. Así queda reflejado si el humano no responde en esta sesión (y se ve en el panel).
-- **Después de cada respuesta**:
+El humano decide **en el panel**: cada punto de decisión aparece en «Te espera» con sus botones (aprobar, pedir cambios, opciones de las preguntas…). **No te bloquees con `AskUserQuestion`** mientras el panel esté en marcha: bloquearía la sesión y los botones del panel no te llegarían hasta que te contestara en la terminal.
+
+Para presentar un punto de decisión:
+
+1. Márcalo con `factory status <ID> waiting_human --reason "<qué se espera, en una línea>" --awaiting <tipo>`. El tipo decide los botones del panel:
+
+   | Situación | `--awaiting` |
+   |---|---|
+   | Aprobar especificación | `approve_spec` |
+   | Aprobar kit de diseño (ID `design`) | `approve_design` |
+   | Aprobar hito | `approve_milestone` |
+   | Fusionar una PR | `approve_merge` |
+   | Lote de aceptación | `present_batch` |
+   | Fusionar la release | `close_milestone` |
+   | Preguntas de un agente | ya lo pone `factory ask` (`answer_questions`) |
+
+2. Escribe en el diálogo del panel un resumen de 1-3 líneas con `factory say --text "…"` (qué tiene que decidir y dónde verlo), y lo mismo en la terminal.
+3. **Termina el turno.** Cuando el humano decida en el panel, te llegará un aviso `[factory panel] …` (ver abajo).
+
+`AskUserQuestion` solo para lo que el panel no cubre: las preguntas de arranque (antes de que exista el panel), las rondas del descubrimiento y las preguntas abiertas que no son una decisión con opciones. Si el humano te contesta en la terminal a algo que estaba en el panel, vale igual: aplica tú la decisión como se indica a continuación.
+
+**Si decides tú a partir de una respuesta en la terminal o en el diálogo** (no desde los botones):
   1. Registra la decisión: `factory decision --title "<tema>" --ref <ID> --text - <<'EOF'` con la pregunta, la opción elegida, el motivo y los comentarios literales del humano.
   2. Aplica el cambio de estado que corresponda.
   3. Si había preguntas de un agente: `factory resolve <ID> --decision D###`.
 - Cuando presentes algo con artefactos, recuérdale que puede verlo también en el panel: la vista Producto para especificaciones y maquetas, la vista Construcción para tareas.
-- **Preguntas de agentes** (`reason: Preguntas pendientes`): léelas con `factory attention` y conviértelas en preguntas de `AskUserQuestion` con las mismas opciones y la misma recomendación. Si una pregunta es abierta, hazla en el chat. Tras resolverlas, **relanza al agente que preguntó** (consta en la cabecera de las preguntas) con el mismo modo y la decisión en el contexto, aunque `factory next` no lo proponga: tiene que incorporar la respuesta.
-- No satures al humano: agrupa lo que puedas en una sola llamada, sin pasar de 4 preguntas.
+- **Preguntas de agentes**: ya aparecen en el panel con sus opciones. Avisa con `factory say` y termina el turno. Tras resolverse, **relanza al agente que preguntó** (consta en la cabecera de las preguntas) con el mismo modo y la decisión en el contexto, aunque `factory next` no lo proponga: tiene que incorporar la respuesta.
+- No satures al humano: agrupa lo que puedas y no presentes lo mismo dos veces.
+
+## Avisos del panel `[factory panel] …`
+
+Lo que el humano hace en el panel te llega como un aviso del monitor que empieza por `[factory panel]`. El panel **ya ha aplicado** la decisión (estado actualizado y decisión registrada); el aviso solo te cuenta qué ha pasado. Por eso:
+
+- No vuelvas a registrar la decisión ni a cambiar el estado. **Comprueba el estado real** (`factory show <ID>` o `factory next`) antes de actuar: manda el estado, no el texto del aviso.
+- Continúa el bucle: si el aviso dice que se pidieron cambios o se respondieron preguntas, relanza al agente que corresponda con la decisión en el contexto; si no, sigue con `factory next`.
+- **Mensajes del humano** (`Mensaje del humano desde el panel: …`): es el humano hablándote desde el diálogo. Contéstale con `factory say --text "…"` (breve, sin la verbosidad de la terminal) y actúa como si te lo hubiera escrito en la terminal. Si te pide aprobar o descartar algo, déjalo listo en «Te espera» para que lo confirme con el botón.
+- **Mantén el diálogo al día** con `factory say`: cuando lances agentes («Lanzo al analista para F001 y F002»), cuando terminen y cuando algo pase a esperarle. Una o dos líneas, en el idioma del proyecto.
 
 ## Puntos de decisión (modos del orquestador)
 
@@ -140,7 +168,7 @@ Registra la decisión y ejecuta `factory set design level=<full|guidelines|none>
 
 **`present_batch`**:
 1. Escribe `.factory/artifacts/M##/batch.md` con la plantilla, a partir de los `validation.md` de cada funcionalidad.
-2. Marca `factory status M## waiting_human --reason "Aceptar lote"`.
+2. Marca `factory status M## waiting_human --reason "Aceptar lote" --awaiting present_batch`.
 3. Presenta el lote: qué contiene, cómo probarlo y qué ha comprobado el validator. Después pregunta por **cada funcionalidad por separado**: Aceptar · Rechazar (comentarios) · Aplazar · Descartar.
 4. Aplica cada respuesta:
    - **Aceptar**: `factory phase F### accepted`.
@@ -152,7 +180,7 @@ Registra la decisión y ejecuta `factory set design level=<full|guidelines|none>
 - **Con GitHub**:
   1. `gh pr create --base <main_branch> --head <release> --title "M## · <título>" --body-file .factory/artifacts/M##/batch.md`
   2. `factory set M## pr=<número> closing=requested`
-  3. `factory status M## waiting_human --reason "Fusionar release en <main_branch>"`
+  3. `factory status M## waiting_human --reason "Fusionar release en <main_branch>" --awaiting close_milestone`
 - **En local**: el mismo `factory set` y `factory status`, y dale el comando: `! git switch <main_branch> && git merge --no-ff <release>`.
 - Cuando `factory sync` lo cierre, propón revisar el roadmap (`roadmap_review`) antes de aprobar el siguiente hito.
 

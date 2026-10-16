@@ -1,0 +1,7 @@
+[
+  {
+    "name": "factory-panel-inbox",
+    "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/inbox_monitor.py\"",
+    "description": "Decisiones y mensajes del humano desde el panel de factory"
+  }
+]

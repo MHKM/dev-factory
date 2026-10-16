@@ -174,6 +174,47 @@ aside.side { position: fixed; top: 0; right: 0; bottom: 0; width: min(760px, 100
 .md blockquote { margin: 10px 0; padding: 4px 14px; border-left: 3px solid var(--border); color: var(--muted); }
 pre.plain { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, monospace; }
 
+/* Decisions in "waiting for you" */
+.decide { margin-top: 12px; display: grid; gap: 10px; }
+.decide .row { gap: 6px; }
+.decide .q { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; }
+.decide .q-title { font-weight: 600; margin-bottom: 8px; }
+.opt { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 10px; cursor: pointer; text-align: left; font-size: 13px; }
+.opt:hover { border-color: var(--accent); }
+.opt.rec { border-color: var(--accent); }
+.opt.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+.opt small { display: block; color: inherit; opacity: .75; font-size: 11px; }
+.comment { display: grid; gap: 6px; }
+.comment textarea { font: inherit; width: 100%; min-height: 64px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); resize: vertical; }
+.button.danger { color: var(--red); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 64px; background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 20; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.icon-button { border: 1px solid var(--border); background: var(--surface); border-radius: 99px; padding: 4px 10px; cursor: pointer; font-size: 13px; }
+
+/* Orchestrator dock */
+body { padding-bottom: 56px; }
+body.dock-open { padding-bottom: 330px; }
+.dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; background: #11151d; color: #d7dce5; border-top: 1px solid #2a3040;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 -6px 18px rgba(0,0,0,.18); }
+.dock-bar { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; }
+.dock-bar b { color: #b9b4ff; font-weight: 600; }
+.dock-bar .last { color: #8a93a6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.dock-bar .unread { background: #8b85ff; color: #11151d; border-radius: 99px; padding: 0 8px; font-weight: 700; }
+.dock-bar .caret { color: #8a93a6; transition: transform .15s; }
+.dock.open .dock-bar .caret { transform: rotate(180deg); }
+.dock-body { display: none; height: 274px; border-top: 1px solid #2a3040; grid-template-rows: 1fr auto; }
+.dock.open .dock-body { display: grid; }
+.dock-log { overflow-y: auto; padding: 10px 20px; display: grid; gap: 6px; align-content: start; }
+.dock-log .m { white-space: pre-wrap; overflow-wrap: anywhere; }
+.dock-log .who { color: #b9b4ff; margin-right: 6px; }
+.dock-log .m.user .who { color: #77d99a; }
+.dock-log .m.event { color: #8a93a6; font-style: italic; }
+.dock-log .t { color: #5d6677; margin-right: 8px; }
+.dock-input { display: flex; gap: 8px; padding: 10px 20px; border-top: 1px solid #2a3040; }
+.dock-input input { flex: 1; font: inherit; background: #1b2130; color: #e6e9ef; border: 1px solid #2a3040; border-radius: 6px; padding: 8px 10px; }
+.dock-input input:focus { outline: 1px solid #8b85ff; }
+.dock-input button { font: inherit; background: #8b85ff; color: #11151d; border: 0; border-radius: 6px; padding: 0 14px; font-weight: 700; cursor: pointer; }
+
 @media (max-width: 760px) {
   main { padding: 16px; }
   header.top { padding: 10px 16px; }
@@ -190,10 +231,20 @@ pre.plain { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, monospace
   </nav>
   <div class="spacer"></div>
   <span id="badge-slot"></span>
+  <button class="icon-button" id="sound" onclick="toggleSound()"></button>
   <span class="live" id="live"><i></i>…</span>
 </header>
 <main id="view"></main>
 <div id="side-slot"></div>
+<div class="toast" id="toast"></div>
+<div class="dock" id="dock">
+  <div class="dock-bar" onclick="toggleDock()"><span>›_</span><b id="dock-title"></b><span class="last" id="dock-last"></span>
+    <span class="unread" id="dock-unread" hidden></span><span class="caret">▲</span></div>
+  <div class="dock-body">
+    <div class="dock-log" id="dock-log"></div>
+    <form class="dock-input" onsubmit="sendMessage(event)"><input id="dock-input" autocomplete="off"><button id="dock-send"></button></form>
+  </div>
+</div>
 
 <script>
 // Code in English. Every text the user sees comes from I18N, in the project's language.
@@ -223,6 +274,13 @@ const I18N = {
     load_error: "No se pudo cargar.", about: "Sobre {x} · {d}", close: "Cerrar", project: "Proyecto",
     act_start: "Arrancando", act_edit: "Editando {t}", act_write: "Escribiendo {t}", act_read: "Leyendo {t}",
     act_search: "Buscando «{t}»", act_web: "Consultando la web", act_agent: "Lanzando un agente",
+    approve: "Aprobar", request_changes: "Pedir cambios", postpone: "Aplazar", discard: "Descartar",
+    merged: "Ya la he fusionado", accept_all: "Aceptar todo", review_one: "Revisar una a una", close_ms: "Fusionar la release",
+    other: "Otra respuesta…", send_answers: "Enviar respuestas", send: "Enviar", cancel: "Cancelar",
+    changes_ph: "¿Qué quieres cambiar?", other_ph: "Escribe tu respuesta", recommended: "recomendada",
+    sent: "Enviado al orquestador", orchestrator: "Orquestador", dock_ph: "Escribe al orquestador…",
+    you: "tú", no_messages: "Todavía no hay mensajes.", sound_on: "🔔 Aviso sonoro", sound_off: "🔕 Sin sonido",
+    pick_all: "Elige una opción en cada pregunta",
   },
   en: {
     panel: "Control panel", product: "Product", construction: "Construction", connecting: "connecting…",
@@ -249,6 +307,13 @@ const I18N = {
     load_error: "Could not load.", about: "About {x} · {d}", close: "Close", project: "Project",
     act_start: "Starting", act_edit: "Editing {t}", act_write: "Writing {t}", act_read: "Reading {t}",
     act_search: "Searching “{t}”", act_web: "Browsing the web", act_agent: "Launching an agent",
+    approve: "Approve", request_changes: "Request changes", postpone: "Postpone", discard: "Discard",
+    merged: "I've merged it", accept_all: "Accept all", review_one: "Review one by one", close_ms: "Merge the release",
+    other: "Other answer…", send_answers: "Send answers", send: "Send", cancel: "Cancel",
+    changes_ph: "What do you want to change?", other_ph: "Type your answer", recommended: "recommended",
+    sent: "Sent to the orchestrator", orchestrator: "Orchestrator", dock_ph: "Message the orchestrator…",
+    you: "you", no_messages: "No messages yet.", sound_on: "🔔 Sound alert", sound_off: "🔕 Muted",
+    pick_all: "Pick an option in every question",
   }
 };
 const LABELS = {
@@ -374,7 +439,13 @@ function render() {
   $("#badge-slot").innerHTML =
     (working ? `<button class="working-badge" onclick="goTo('construction')">● ${working} ${esc(t(working === 1 ? "agents_one" : "agents_many"))}</button> ` : "") +
     (pending.length ? `<button class="alert" onclick="goTo('construction')">${pending.length} ${esc(t(pending.length === 1 ? "alert_one" : "alert_many"))}</button>` : "");
+  const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.draft : null;
+  const caret = focused ? document.activeElement.selectionStart : 0;
   $("#view").innerHTML = view === "product" ? productView() : constructionView(pending);
+  if (focused) { const el = document.querySelector(`[data-draft="${CSS.escape(focused)}"]`); if (el) { el.focus(); el.setSelectionRange(caret, caret); } }
+  renderDock();
+  renderSound();
+  checkAlert(pending.length);
   tick();
   if (side) openSide(side.id, side.tab, true);
 }
@@ -468,10 +539,10 @@ function constructionView(pending) {
     const m = e.meta, questions = section(e.body, "Pending questions");
     return `<div class="card attention">
       <div class="row"><span class="id">${esc(m.id)}</span>${chip(LB.status[m.status])}<b>${esc(titleOf(e))}</b>
-        <span class="spacer"></span>${prButton(e)}${artifactButtons(e)}<button class="button" onclick="openSide('${esc(m.id)}')">${esc(t("card"))}</button></div>
+        <span class="spacer"></span>${["approve_merge", "close_milestone"].includes(m.awaiting) ? "" : prButton(e)}${artifactButtons(e)}<button class="button" onclick="openSide('${esc(m.id)}')">${esc(t("card"))}</button></div>
       <div style="margin-top:6px">${esc(m.reason || "")}</div>
-      ${questions ? `<div class="question md">${md(questions)}</div>` : ""}
-      <div class="muted small" style="margin-top:8px">${esc(t("answer_terminal"))}</div>
+      ${questions && m.awaiting !== "answer_questions" ? `<div class="question md">${md(questions)}</div>` : ""}
+      ${decisionBlock(e, questions)}
     </div>`;
   }).join("") : `<div class="empty">${esc(t("nothing_pending"))}</div>`;
 
@@ -617,6 +688,148 @@ function taskCard(task) {
       ${(m.depends_on || []).length && m.phase === "pending" ? `<span>${esc(t("depends", { x: m.depends_on.join(", ") }))}</span>` : ""}
     </div>
   </div>`;
+}
+
+/* ------------------------------------------------------------------ Decisions */
+const drafts = {}, answers = {}, openComment = {};
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+function parseQuestions(text) {
+  const qs = [];
+  for (const line of (text || "").split("\n")) {
+    const q = line.match(/^\s*\*\*(P\d+)\.?\s*(.+?)\*\*/);
+    if (q) { qs.push({ id: q[1], text: q[2], options: [] }); continue; }
+    const o = line.match(/^\s*[-*]\s*\*\*([A-Z])\)\s*(.+?)\*\*\s*(.*)$/);
+    if (o && qs.length) qs[qs.length - 1].options.push({ key: o[1], label: o[2], note: o[3].replace(/^[—–-]\s*/, ""),
+      rec: /recomendad|recommended/i.test(o[3]) });
+  }
+  return qs;
+}
+
+function decisionBlock(e, questions) {
+  const m = e.meta, id = m.id;
+  const buttons = (list) => `<div class="row">${list.map(([action, label, cls]) =>
+    `<button class="button ${cls || ""}" onclick="act('${esc(id)}', '${action}', this.textContent)">${esc(label)}</button>`).join("")}</div>`;
+  const changes = (action = "request_changes") => openComment[id] === action
+    ? `<div class="comment"><textarea data-draft="${esc(id)}:${action}" placeholder="${esc(t("changes_ph"))}" oninput="drafts[this.dataset.draft]=this.value">${esc(drafts[`${id}:${action}`] || "")}</textarea>
+        <div class="row"><button class="button primary" onclick="act('${esc(id)}', '${action}', '${esc(t("request_changes"))}', drafts['${esc(id)}:${action}'])">${esc(t("send"))}</button>
+        <button class="button" onclick="openComment['${esc(id)}']=null; render()">${esc(t("cancel"))}</button></div></div>`
+    : `<button class="button" onclick="openComment['${esc(id)}']='${action}'; render()">${esc(t("request_changes"))}</button>`;
+
+  switch (m.awaiting) {
+    case "approve_spec":
+      return `<div class="decide"><div class="row">${buttons([["approve", t("approve"), "primary"]])}${changes()}
+        ${buttons([["postpone", t("postpone")], ["discard", t("discard"), "danger"]])}</div></div>`;
+    case "approve_design": case "approve_milestone":
+      return `<div class="decide"><div class="row">${buttons([["approve", t("approve"), "primary"]])}${changes()}</div></div>`;
+    case "approve_merge":
+      return `<div class="decide"><div class="row">${prButton(e)}${buttons([["merged", t("merged")]])}${changes()}</div></div>`;
+    case "present_batch":
+      return `<div class="decide"><div class="row">${buttons([["accept_all", t("accept_all"), "primary"], ["review_one", t("review_one")]])}${changes()}</div></div>`;
+    case "close_milestone":
+      return `<div class="decide"><div class="row">${prButton(e)}${buttons([["merged", t("merged")]])}</div></div>`;
+    case "answer_questions": {
+      const qs = parseQuestions(questions);
+      if (!qs.length) break;
+      const picked = answers[id] || {};
+      return `<div class="decide">${qs.map(q => `<div class="q"><div class="q-title">${esc(q.id)}. ${esc(q.text)}</div>
+        <div class="row">${q.options.map(o => `<button class="opt ${o.rec ? "rec" : ""} ${picked[q.id] === o.key ? "selected" : ""}"
+          onclick="pick('${esc(id)}', '${q.id}', '${o.key}')"><b>${esc(o.key)})</b> ${esc(o.label)}${o.rec ? ` ★` : ""}
+          ${o.note ? `<small>${esc(o.note.replace(/\*/g, ""))}</small>` : ""}</button>`).join("")}
+          <button class="opt ${picked[q.id] === "other" ? "selected" : ""}" onclick="pick('${esc(id)}', '${q.id}', 'other')">${esc(t("other"))}</button></div>
+        ${picked[q.id] === "other" ? `<div class="comment" style="margin-top:8px"><textarea data-draft="${esc(id)}:${q.id}" placeholder="${esc(t("other_ph"))}"
+          oninput="drafts[this.dataset.draft]=this.value">${esc(drafts[`${id}:${q.id}`] || "")}</textarea></div>` : ""}</div>`).join("")}
+        <div class="row"><button class="button primary" onclick="sendAnswers('${esc(id)}')">${esc(t("send_answers"))}</button></div></div>`;
+    }
+  }
+  return `<div class="muted small" style="margin-top:8px">${esc(t("answer_terminal"))}</div>`;
+}
+
+function pick(id, q, key) { answers[id] = { ...(answers[id] || {}), [q]: key }; render(); }
+
+function sendAnswers(id) {
+  const e = byId(id), qs = parseQuestions(section(e.body, "Pending questions")), picked = answers[id] || {};
+  if (qs.some(q => !picked[q.id])) { toast(t("pick_all")); return; }
+  const choice = qs.map(q => picked[q.id] === "other" ? `${q.id}: ${drafts[`${id}:${q.id}`] || ""}` : `${q.id}=${picked[q.id]}`).join("; ");
+  act(id, "answer", t("send_answers"), "", choice);
+}
+
+async function post(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Factory": "1" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+async function act(id, action, label, comment = "", choice = "") {
+  try {
+    await post("/api/action", { id, action, label, comment, choice });
+    openComment[id] = null;
+    toast(t("sent"));
+    load();
+  } catch (err) { toast(err.message || t("load_error")); }
+}
+
+function toast(text) {
+  const el = $("#toast"); el.textContent = text; el.classList.add("show");
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+/* ------------------------------------------------------------------ Orchestrator dock */
+let dockOpen = store.get("factory.dock") === "open";
+function toggleDock() {
+  dockOpen = !dockOpen; store.set("factory.dock", dockOpen ? "open" : "closed");
+  renderDock(true);
+  if (dockOpen) $("#dock-input").focus();
+}
+
+function renderDock(scroll = false) {
+  const msgs = state.conversation || [];
+  const fromOrch = msgs.filter(x => x.from === "orchestrator").length;
+  if (dockOpen) store.set("factory.seen", String(fromOrch));
+  const unread = Math.max(0, fromOrch - Number(store.get("factory.seen") || 0));
+  $("#dock").classList.toggle("open", dockOpen);
+  document.body.classList.toggle("dock-open", dockOpen);
+  $("#dock-title").textContent = t("orchestrator");
+  $("#dock-input").placeholder = t("dock_ph");
+  $("#dock-send").textContent = t("send");
+  const last = [...msgs].reverse().find(x => x.from === "orchestrator");
+  $("#dock-last").textContent = last ? last.text.split("\n")[0] : "";
+  $("#dock-unread").hidden = !unread; $("#dock-unread").textContent = unread;
+  const log = $("#dock-log");
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 30;
+  log.innerHTML = msgs.length ? msgs.map(x => `<div class="m ${esc(x.from)}"><span class="t">${esc((x.time || "").slice(11, 16))}</span>${
+    x.from === "event" ? `• ${esc(x.text)}` : `<span class="who">${esc(x.from === "user" ? t("you") : t("orchestrator").toLowerCase())} ›</span>${esc(x.text)}`}</div>`).join("")
+    : `<div class="m event">${esc(t("no_messages"))}</div>`;
+  if (scroll || atBottom) log.scrollTop = log.scrollHeight;
+}
+
+async function sendMessage(ev) {
+  ev.preventDefault();
+  const input = $("#dock-input"), text = input.value.trim();
+  if (!text) return;
+  try { await post("/api/message", { text }); input.value = ""; load(); } catch (err) { toast(t("load_error")); }
+}
+
+/* ------------------------------------------------------------------ Sound */
+let soundOn = store.get("factory.sound") !== "off", lastPending = null;
+function toggleSound() { soundOn = !soundOn; store.set("factory.sound", soundOn ? "on" : "off"); renderSound(); if (soundOn) beep(); }
+function renderSound() { $("#sound").textContent = t(soundOn ? "sound_on" : "sound_off"); }
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[880, 0], [1175, .18]].forEach(([f, at]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(.0001, ctx.currentTime + at);
+      g.gain.exponentialRampToValueAtTime(.25, ctx.currentTime + at + .02);
+      g.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + at + .3);
+      o.start(ctx.currentTime + at); o.stop(ctx.currentTime + at + .32);
+    });
+  } catch (e) {}
+}
+function checkAlert(pendingCount) {
+  if (lastPending !== null && pendingCount > lastPending && soundOn) beep();
+  lastPending = pendingCount;
 }
 
 /* ------------------------------------------------------------------ Side panel */

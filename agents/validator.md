@@ -25,7 +25,7 @@ Primero lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md` y cúmplelo. Plantilla
    - **Se ajusta al diseño**: interfaces, ficheros y nada fuera de alcance (`git diff <base>...<rama> --stat`).
 4. Escribe `.factory/artifacts/T###/review.md`. Para varias tareas de un paquete, escribe una revisión en la primera y referencia las demás.
 5. Resultado:
-   - **OK**: `factory set T### review=ok` y `factory status T### waiting_human --reason "Fusionar PR #<n>"` (o `"Fusionar rama <rama> (local)"`).
+   - **OK**: `factory set T### review=ok` y `factory status T### waiting_human --reason "Fusionar PR #<n>" --awaiting approve_merge` (o `--reason "Fusionar rama <rama> (local)"`).
    - **KO**: `factory set T### review=ko`, después `factory phase T### development --reason "Revisión KO: ver review.md"` y por último `factory attempt T### --reason "<resumen>"`, en ese orden.
 
 ## Modo `feature_validation` (funcionalidad en `building` con todas sus tareas en `done`)

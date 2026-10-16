@@ -135,6 +135,37 @@ MESSAGES = {
     "no_ports": ("No hay puertos libres entre {a} y {b}", "No free ports between {a} and {b}"),
     "panel": ("Panel de {name}: {url}", "{name} panel: {url}"),
     "not_found_http": ("No encontrado", "Not found"),
+    "ev_action": ("Desde el panel: {action} en {id}", "From the panel: {action} on {id}"),
+    "bad_action": ("La acción «{action}» no aplica a {id} ahora mismo (espera: {awaiting})",
+                   "Action “{action}” does not apply to {id} right now (awaiting: {awaiting})"),
+    "dec_title": ("{what} · {id}", "{what} · {id}"),
+    "w_approve_spec": ("Aprobación de la especificación", "Spec approval"),
+    "w_approve_design": ("Aprobación del kit de diseño", "Design kit approval"),
+    "w_approve_milestone": ("Aprobación del hito", "Milestone approval"),
+    "w_changes": ("Cambios pedidos", "Changes requested"),
+    "w_postpone": ("Aplazamiento", "Postponement"),
+    "w_discard": ("Descarte", "Discard"),
+    "w_answers": ("Respuestas a preguntas", "Answers to questions"),
+    "w_batch": ("Aceptación del lote", "Batch acceptance"),
+    "dec_from_panel": ("Decidido por el humano desde el panel.", "Decided by the human from the panel."),
+    "changes_reason": ("Cambios pedidos: {dec}", "Changes requested: {dec}"),
+    "in_approve": ("El humano ha aprobado {id} ({what}) desde el panel. Estado actualizado; decisión {dec}. Continúa con `factory next`.",
+                   "The human approved {id} ({what}) from the panel. State updated; decision {dec}. Continue with `factory next`."),
+    "in_changes": ("El humano pide cambios en {id} ({what}): «{comment}». Decisión {dec}. Relanza al agente que corresponda con esa decisión.",
+                   "The human requests changes on {id} ({what}): “{comment}”. Decision {dec}. Relaunch the right agent with that decision."),
+    "in_phase": ("El humano ha pasado {id} a {phase} desde el panel. Decisión {dec}. Continúa con `factory next`.",
+                 "The human moved {id} to {phase} from the panel. Decision {dec}. Continue with `factory next`."),
+    "in_merged": ("El humano dice que ha fusionado {id}. Sincronizado: {changes}. Continúa con `factory next`.",
+                  "The human says {id} is merged. Synced: {changes}. Continue with `factory next`."),
+    "in_not_merged": ("todavía no se detecta la fusión; díselo en el diálogo", "the merge is not detected yet; tell them in the dock"),
+    "in_answers": ("El humano ha respondido a las preguntas de {id}: {choice}. Decisión {dec}; preguntas resueltas. Relanza al agente que preguntó.",
+                   "The human answered the questions on {id}: {choice}. Decision {dec}; questions resolved. Relaunch the agent that asked."),
+    "in_batch": ("El humano ha aceptado el lote de {id}: {features}. Decisión {dec}. Continúa con `factory next`.",
+                 "The human accepted the batch of {id}: {features}. Decision {dec}. Continue with `factory next`."),
+    "in_review_one": ("El humano quiere revisar el lote de {id} funcionalidad a funcionalidad: preséntaselas en el panel.",
+                      "The human wants to review the batch of {id} feature by feature: present them in the panel."),
+    "in_message": ("Mensaje del humano desde el panel: {text}", "Message from the human in the panel: {text}"),
+    "missing_say": ("Falta el texto (--text o --text - por stdin)", "Missing text (--text, or --text - for stdin)"),
 }
 
 
@@ -469,6 +500,8 @@ def _apply_phase(d: Doc, phase: str, status: str | None, reason: str | None) -> 
     terminal = phase in TERMINAL.get(d.type, set())
     d.meta["status"] = "" if terminal else (status or "queued")
     d.meta["reason"] = reason or ""
+    if "awaiting" in d.meta:
+        d.meta["awaiting"] = ""
     d.log(msg("log_phase", old=previous, new=phase) + (f" ({reason})" if reason else ""))
 
 
@@ -489,6 +522,7 @@ def cmd_status(a) -> None:
         raise Error(msg("bad_status", status=a.status, valid=", ".join(STATUSES)))
     d.meta["status"] = a.status
     d.meta["reason"] = a.reason or ""
+    d.meta["awaiting"] = a.awaiting if a.status == "waiting_human" and a.awaiting else ""
     d.log(msg("log_status", status=a.status) + (f" ({a.reason})" if a.reason else ""))
     d.save()
     print(f"{d.id}: {d['phase'] or '-'} · {a.status}")
@@ -611,24 +645,41 @@ def cmd_ask(a) -> None:
                                f"_{now()}{' · ' + a.agent if a.agent else ''}_\n\n{text}")
     d.meta["status"] = "waiting_human"
     d.meta["reason"] = a.reason or msg("default_reason")
+    d.meta["awaiting"] = "answer_questions"
     d.log(msg("log_asked", reason=d.meta["reason"]))
     d.save()
     print(f"{d.id}: waiting_human")
 
 
-def cmd_resolve(a) -> None:
-    root = project_root()
-    d = load(root, a.id)
+def resolve_questions(d: Doc, decision: str) -> None:
     pending = read_section(d.body, SEC_PENDING)
     if pending:
         d.body = clear_section(d.body, SEC_PENDING)
         d.body = append_to_section(d.body, SEC_RESOLVED,
-                                   f"**{msg('resolved_in', decision=a.decision)}**\n\n{pending}")
+                                   f"**{msg('resolved_in', decision=decision)}**\n\n{pending}")
     d.meta["status"] = "queued"
     d.meta["reason"] = ""
-    d.log(msg("log_resolved", decision=a.decision))
+    d.meta["awaiting"] = ""
+    d.log(msg("log_resolved", decision=decision))
     d.save()
+
+
+def cmd_resolve(a) -> None:
+    root = project_root()
+    d = load(root, a.id)
+    resolve_questions(d, a.decision)
     print(f"{d.id}: queued")
+
+
+def record_decision(root: Path, title: str, ref: str, text: str) -> str:
+    ident = next_id(root, "D")
+    path = root / ".factory" / "decisions" / f"{ident}-{slug(title)}.md"
+    ref = ref or ""
+    ref = ref.lower() if ref.lower() in ("project", "design") else ref.upper()
+    path.write_text(
+        f"---\nid: {ident}\ntitle: {title}\nref: {ref}\ndate: {now()}\n---\n\n"
+        f"# {ident} · {title}\n\n{text}\n", encoding="utf-8")
+    return ident
 
 
 def cmd_decision(a) -> None:
@@ -636,14 +687,7 @@ def cmd_decision(a) -> None:
     text = text_arg(a.text)
     if not text:
         raise Error(msg("missing_decision"))
-    ident = next_id(root, "D")
-    path = root / ".factory" / "decisions" / f"{ident}-{slug(a.title)}.md"
-    ref = a.ref or ""
-    ref = ref.lower() if ref.lower() in ("project", "design") else ref.upper()
-    path.write_text(
-        f"---\nid: {ident}\ntitle: {a.title}\nref: {ref}\ndate: {now()}\n---\n\n"
-        f"# {ident} · {a.title}\n\n{text}\n", encoding="utf-8")
-    print(ident)
+    print(record_decision(root, a.title, a.ref, text))
 
 
 def cmd_attempt(a) -> None:
@@ -711,8 +755,8 @@ def _branch_merged(branch: str, target: str, root: Path, remote: bool) -> bool:
     return git_ok("merge-base", "--is-ancestor", branch, target, cwd=root)
 
 
-def cmd_sync(a) -> None:
-    root = project_root()
+def sync(root: Path) -> list:
+    """Detect merged PRs/releases; returns the change messages."""
     p = project(root)
     remote = p["remote"] == "github"
     main = p["main_branch"] or "master"
@@ -720,7 +764,7 @@ def cmd_sync(a) -> None:
         git("fetch", "--quiet", "--prune", "origin", cwd=root, check=False)
     docs = load_all(root)
     releases = {d.id: d["branch"] for d in docs if d.type == "milestone"}
-    changes = 0
+    changes = []
     for d in docs:
         if d.type == "task" and d["phase"] == "in_review":
             target = main if d["kind"] == "hotfix" else releases.get(d["milestone"], "")
@@ -729,8 +773,7 @@ def cmd_sync(a) -> None:
             if merged:
                 _apply_phase(d, "done", None, None)
                 d.save()
-                changes += 1
-                print(msg("merged_task", id=d.id))
+                changes.append(msg("merged_task", id=d.id))
         elif d.type == "milestone" and d["phase"] == "approved" and d["closing"] == "requested":
             merged = (_pr_merged(d["pr"], root) if remote and d["pr"]
                       else _branch_merged(d["branch"], main, root, remote))
@@ -738,10 +781,13 @@ def cmd_sync(a) -> None:
                 d.meta["closing"] = "merged"
                 _apply_phase(d, "closed", None, None)
                 d.save()
-                changes += 1
-                print(msg("merged_release", id=d.id, main=main))
-    if not changes:
-        print(msg("no_changes"))
+                changes.append(msg("merged_release", id=d.id, main=main))
+    return changes
+
+
+def cmd_sync(a) -> None:
+    changes = sync(project_root())
+    print("\n".join(changes) if changes else msg("no_changes"))
 
 
 # --------------------------------------------------------------------------- design
@@ -816,6 +862,37 @@ def cmd_design_kit(a) -> None:
         build_tokens_css(json.loads((target / "tokens.json").read_text(encoding="utf-8"))),
         encoding="utf-8")
     print(target)
+
+
+# --------------------------------------------------------------------------- conversation
+
+def _append_jsonl(path: Path, record: dict) -> None:
+    record = {"time": dt.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), **record}
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _read_jsonl(path: Path, limit: int) -> list:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
+    except OSError:
+        return []
+    out = []
+    for line in lines:
+        try:
+            out.append(json.loads(line))
+        except ValueError:
+            pass
+    return out
+
+
+def cmd_say(a) -> None:
+    """The orchestrator writes a short message for the panel's conversation dock."""
+    root = project_root()
+    text = text_arg(a.text)
+    if not text:
+        raise Error(msg("missing_say"))
+    _append_jsonl(root / ".factory" / "conversation.jsonl", {"from": "orchestrator", "text": text})
 
 
 # --------------------------------------------------------------------------- routing
@@ -1039,11 +1116,82 @@ def state_json(root: Path) -> dict:
         "decisions": decisions,
         "actions": [{"who": w, "id": i, "mode": m} for w, i, m in actions],
         "activity": read_activity(root),
+        "conversation": _read_jsonl(root / ".factory" / "conversation.jsonl", 200),
         "language": LANG,
         "max_attempts": max_attempts(root),
         "prs_url": _prs_url(root),
         "generated": now(),
     }
+
+
+def apply_panel_action(root: Path, data: dict) -> str:
+    """Apply a decision taken in the panel; returns the summary for the orchestrator."""
+    ident, action = str(data["id"]), str(data["action"])
+    comment, choice = str(data.get("comment") or "").strip(), str(data.get("choice") or "").strip()
+    d = load(root, ident)
+    awaiting = d["awaiting"]
+    what_key = {"approve_spec": "w_approve_spec", "approve_design": "w_approve_design",
+                "approve_milestone": "w_approve_milestone"}.get(awaiting)
+    what = msg(what_key) if what_key else awaiting
+    bad = Error(msg("bad_action", action=action, id=ident, awaiting=awaiting or "-"))
+
+    def decide(title_key: str, extra: str = "") -> str:
+        text = msg("dec_from_panel") + (f"\n\n{extra}" if extra else "")
+        return record_decision(root, msg("dec_title", what=msg(title_key), id=d.id), d.id, text)
+
+    if action == "approve":
+        target = {"approve_spec": "specified", "approve_design": "approved",
+                  "approve_milestone": "approved"}.get(awaiting)
+        if not target:
+            raise bad
+        dec = decide(what_key)
+        _apply_phase(d, target, None, None)
+        d.save()
+        return msg("in_approve", id=d.id, what=what, dec=dec)
+    if action == "request_changes":
+        if not awaiting:
+            raise bad
+        dec = decide("w_changes", comment)
+        d.meta.update({"status": "queued", "reason": msg("changes_reason", dec=dec), "awaiting": ""})
+        d.log(msg("changes_reason", dec=dec))
+        d.save()
+        return msg("in_changes", id=d.id, what=what, comment=comment, dec=dec)
+    if action in ("postpone", "discard"):
+        if d.type != "feature":
+            raise bad
+        phase = "postponed" if action == "postpone" else "discarded"
+        dec = decide("w_postpone" if action == "postpone" else "w_discard", comment)
+        _apply_phase(d, phase, None, None)
+        d.save()
+        return msg("in_phase", id=d.id, phase=phase, dec=dec)
+    if action == "merged":
+        if awaiting not in ("approve_merge", "close_milestone"):
+            raise bad
+        changes = sync(root)
+        return msg("in_merged", id=d.id, changes="; ".join(changes) or msg("in_not_merged"))
+    if action == "answer":
+        if awaiting != "answer_questions" or not choice:
+            raise bad
+        questions = read_section(d.body, SEC_PENDING)
+        dec = decide("w_answers", f"{questions}\n\n**→ {choice}**")
+        resolve_questions(d, dec)
+        return msg("in_answers", id=d.id, choice=choice, dec=dec)
+    if action == "accept_all":
+        if awaiting != "present_batch" or d.type != "milestone":
+            raise bad
+        accepted = []
+        for f in load_all(root):
+            if f.type == "feature" and f["milestone"] == d.id and f["phase"] == "validated":
+                _apply_phase(f, "accepted", None, None)
+                f.save()
+                accepted.append(f.id)
+        dec = decide("w_batch", ", ".join(accepted))
+        d.meta.update({"status": "queued", "reason": "", "awaiting": ""})
+        d.save()
+        return msg("in_batch", id=d.id, features=", ".join(accepted) or "-", dec=dec)
+    if action == "review_one":
+        return msg("in_review_one", id=d.id)
+    raise bad
 
 
 def _handler(root: Path):
@@ -1087,6 +1235,42 @@ def _handler(root: Path):
                     self._send(404, not_found, "text/plain; charset=utf-8")
             except Exception as e:  # a half-written file must not bring the panel down
                 self._send(500, str(e).encode("utf-8"), "text/plain; charset=utf-8")
+
+        def do_POST(self):
+            # A custom header forces a CORS preflight, so other web pages cannot post here.
+            if self.headers.get("X-Factory") != "1":
+                self._send(403, b"forbidden", "text/plain; charset=utf-8")
+                return
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                data = json.loads(self.rfile.read(length) or b"{}")
+            except ValueError:
+                self._send(400, b"bad request", "text/plain; charset=utf-8")
+                return
+            set_lang(root)
+            fac = root / ".factory"
+            route = urlparse(self.path).path
+            if route == "/api/message" and str(data.get("text", "")).strip():
+                text = str(data["text"]).strip()
+                _append_jsonl(fac / "inbox.jsonl", {"type": "message", "text": text,
+                                                    "summary": msg("in_message", text=text)})
+                _append_jsonl(fac / "conversation.jsonl", {"from": "user", "text": text})
+            elif route == "/api/action" and data.get("id") and data.get("action"):
+                try:
+                    summary = apply_panel_action(root, data)
+                except Error as e:
+                    self._send(409, str(e).encode("utf-8"), "text/plain; charset=utf-8")
+                    return
+                record = {k: str(data[k]) for k in ("id", "action", "choice", "comment") if data.get(k)}
+                _append_jsonl(fac / "inbox.jsonl", {"type": "action", "summary": summary, **record})
+                event = msg("ev_action", action=data.get("label") or data["action"], id=data["id"])
+                if data.get("comment"):
+                    event += f" — «{data['comment']}»"
+                _append_jsonl(fac / "conversation.jsonl", {"from": "event", "text": event})
+            else:
+                self._send(400, b"bad request", "text/plain; charset=utf-8")
+                return
+            self._send(200, b"ok", "text/plain; charset=utf-8")
 
     return Handler
 
@@ -1152,6 +1336,8 @@ def main(argv=None) -> int:
     s.add_argument("id")
     s.add_argument("status")
     s.add_argument("--reason")
+    s.add_argument("--awaiting", help="with waiting_human: what is awaited (approve_spec, approve_design, "
+                                      "approve_milestone, approve_merge, present_batch, close_milestone…)")
     s.set_defaults(f=cmd_status)
 
     s = sub.add_parser("set", help="change fields: factory set ID field=value ...")
@@ -1219,6 +1405,10 @@ def main(argv=None) -> int:
     s.add_argument("--src", help="source tokens.json (default: the project's kit)")
     s.add_argument("--out", help="target tokens.css (default: next to the source)")
     s.set_defaults(f=cmd_tokens)
+
+    s = sub.add_parser("say", help="write a message for the panel's conversation dock")
+    s.add_argument("--text", required=True, help="'-' reads stdin")
+    s.set_defaults(f=cmd_say)
 
     s = sub.add_parser("panel", help="serve the HTML control panel on localhost")
     s.add_argument("--port", type=int, default=8765)

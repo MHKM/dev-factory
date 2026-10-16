@@ -11,6 +11,8 @@ Los identificadores (comandos, campos, valores, carpetas) están en inglés. Los
   project.md             perfil del proyecto + estado del proyecto (ID «project»)
   design.md              estado del kit de diseño (ID «design»)
   activity.json          agentes trabajando ahora (lo escribe el hook de actividad)
+  inbox.jsonl            decisiones y mensajes del humano desde el panel (los lee el monitor)
+  conversation.jsonl     diálogo del panel con el orquestador
   state/
     M01-web-basica.md    hito (milestone)
     F001-catalogo.md     funcionalidad (feature)
@@ -79,7 +81,7 @@ updated: 2026-10-12 19:05
 | feature | `milestone`, `priority` (`must`/`should`/`later`), `version`, `depends_on`, `needs_mockup` (`yes`/`no`), `validation` (`ko`/`rejected`/vacío) |
 | task | `kind` (`technical`/`cross_cutting`/`fix`/`hotfix`), `parent`, `milestone`, `package`, `agent`, `attempts`, `depends_on`, `branch`, `pr`, `review` (`ok`/`ko`) |
 
-Todos tienen además `id`, `type`, `title`, `phase`, `status`, `reason`, `created` y `updated`.
+Todos tienen además `id`, `type`, `title`, `phase`, `status`, `reason`, `created` y `updated`. Con `waiting_human`, el campo `awaiting` dice qué se espera (`approve_spec`, `approve_design`, `approve_milestone`, `approve_merge`, `present_batch`, `close_milestone`, `answer_questions`) y decide los botones del panel.
 
 ### Fases y situaciones
 
@@ -119,6 +121,7 @@ IDs: `M01` (hito), `F001` (funcionalidad), `T001` (tarea), `D001` (decisión), `
 | `factory sync` | Detecta PRs o ramas fusionadas: tareas a `done` y hitos a `closed` |
 | `factory design-kit` | Crea `.factory/artifacts/design/` desde la plantilla del kit (sin pisar lo existente; la galería se refresca siempre) y genera `tokens.css` |
 | `factory tokens [--src tokens.json] [--out tokens.css]` | Genera variables CSS (con modo oscuro) desde un `tokens.json` en formato W3C Design Tokens. Sin argumentos usa el del kit; con `--src` sirve para el del repositorio |
+| `factory say --text T` | El orquestador escribe un mensaje en el diálogo del panel |
 | `factory panel [--port 8765] [--open]` | Sirve el panel de control en `http://127.0.0.1:<puerto>/` (si está ocupado, prueba los siguientes) y guarda la URL en `.factory/panel.url` |
 
 `--text -` lee de la entrada estándar (heredoc).
