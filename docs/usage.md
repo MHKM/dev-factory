@@ -8,18 +8,26 @@
 
 ## Arrancar un proyecto
 
-Cada construcción va en **su propia carpeta**, fuera de este repositorio. Se arranca con el lanzador `factory-start`, que está en la raíz de este repo:
+Cada construcción va en **su propia carpeta**, fuera de este repositorio.
+
+**Instalación (una vez):** el plugin se instala desde el marketplace local de este repo y queda disponible en cualquier sesión de `claude`:
 
 ```bash
-mkdir ~/Documents/projects/web-taller && cd ~/Documents/projects/web-taller
-~/Documents/projects/dev-factory/factory-start
+claude plugin marketplace add ~/Documents/projects/dev-factory
+claude plugin install factory@dev-factory
 ```
 
-El orquestador habla primero: en un proyecto nuevo te pregunta qué quieres construir; en uno existente, resume el estado y abre el panel. Para no escribir la ruta cada vez, enlázalo en una carpeta de tu `PATH` (por ejemplo `ln -s ~/Documents/projects/dev-factory/factory-start /opt/homebrew/bin/factory-start`) o crea un alias.
+Se carga desde este repositorio tal como esté en disco, así que los cambios en agentes, plantillas o el comando se aplican en la siguiente sesión.
 
-Por qué un lanzador: los agentes de un plugin ignoran el mensaje inicial automático (`initialPrompt`) que tendría el orquestador, así que `factory-start` abre `claude` con el plugin, el agente orquestador y `/factory:start` como primer mensaje. Admite opciones de `claude` delante (por ejemplo `factory-start --model sonnet`). Dentro de una sesión, `/factory:start` vuelve a mostrar el resumen del estado.
+**Arrancar:** abre `claude` en la carpeta del proyecto y escribe
 
-`factory-start` carga el plugin desde este repositorio tal como esté en disco, así que cualquier cambio en agentes, plantillas o en el comando se aplica en la siguiente sesión.
+```
+/factory:start
+```
+
+La sesión adopta el rol de orquestador: en un proyecto nuevo te pregunta qué quieres construir; en uno existente resume el estado y abre el panel. `/factory:start` también sirve en mitad de una sesión para volver a ver el estado.
+
+**Alternativa estricta:** `~/Documents/projects/dev-factory/factory-start` abre la sesión con el orquestador como agente principal, lo que además aplica sus restricciones de herramientas (por ejemplo, no puede editar código él mismo). Admite opciones de `claude` delante (`factory-start --model sonnet`).
 
 Para retomar un proyecto, se arranca igual en su carpeta: el orquestador lee `.factory/`, sincroniza y resume dónde estáis.
 
@@ -30,10 +38,15 @@ Los agentes ejecutan `factory` constantemente. Para que Claude Code no pida apro
 ```json
 {
   "permissions": {
-    "allow": ["Bash(factory:*)"]
+    "allow": [
+      "Bash(factory:*)",
+      "Read(//ruta/a/dev-factory/**)"
+    ]
   }
 }
 ```
+
+La segunda regla deja leer las instrucciones y las reglas del plugin (fuera de la carpeta del proyecto) sin pedir permiso.
 
 ## Qué esperar (ejemplo)
 
