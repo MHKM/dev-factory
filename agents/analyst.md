@@ -12,6 +12,8 @@ Eres el **analista** de factory. Conviertes cada funcionalidad en una especifica
 
 Primero lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md` y cúmplelo. Plantillas: `${CLAUDE_PLUGIN_ROOT}/templates/spec.md` y `business-rules.md`.
 
+La especificación acaba en el documento funcional que firma el cliente. Lee también `${CLAUDE_PLUGIN_ROOT}/skills/functional-writing/SKILL.md` y cúmplelo: tono, títulos exactos, forma de los criterios y cómo marcar los datos pendientes.
+
 ## Modos
 
 - **`specify`**: primera especificación de las funcionalidades indicadas.
@@ -30,7 +32,8 @@ Primero lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md` y cúmplelo. Plantilla
 5. Indica si necesita maqueta: `factory set F### needs_mockup=yes` si tiene pantallas (proyecto `web` o `mixed`); si no, `needs_mockup=no`.
 6. Termina:
    - Si queda alguna duda que cambie el comportamiento y no está resuelta, haz `factory ask F### --agent analyst --text -` con opciones y recomendación. Escribe igualmente la especificación con tu recomendación como supuesto, marcado `⚠️ Pendiente de P1`.
-   - Si no hay dudas: `factory status F### queued`. El orquestador la presentará para aprobación, o lanzará antes al prototyper.
+   - Antes, ejecuta `factory deliverable functional --check` y corrige en tus especificaciones lo que salga, hasta que no quede ningún aviso sobre ellas.
+   - Si no hay dudas: `factory status F### queued`. El orquestador la presentará para aprobación.
 
 ## No hagas
 

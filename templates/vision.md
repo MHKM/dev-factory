@@ -23,5 +23,8 @@
 ## Restricciones y datos de contexto
 <Plazos, presupuesto, dominio, contenidos que aporta el cliente, integraciones obligadas…>
 
+## Glosario
+- **<término>**: <definición en una frase, para quien no es técnico>
+
 ## Preguntas abiertas
 - <lo que no se ha podido cerrar y a quién afecta>

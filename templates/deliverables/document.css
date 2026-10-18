@@ -1,0 +1,100 @@
+/* Client deliverables (functional and design documents). Printed to A4 PDF by Chrome.
+   --accent and --ink come from the studio identity; everything else is fixed. */
+:root {
+  --paper: #FFFFFF;
+  --rule: #D8DDE2;
+  --soft: #F3F5F6;
+  --muted: #5B6670;
+  --serif: "Source Serif 4", Georgia, serif;
+  --sans: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* The footer texts (studio, document and version) are added per document by `factory deliverable`. */
+@page {
+  size: A4;
+  margin: 22mm 20mm 24mm 22mm;
+  @bottom-right { content: counter(page) " / " counter(pages); font: 7.5pt "Public Sans", Arial, sans-serif; color: #5B6670; }
+}
+@page :first { margin: 0; @bottom-right { content: none; } @bottom-left { content: none; } }
+
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font: 10pt/1.55 var(--sans); color: var(--ink); background: var(--paper); }
+a { color: var(--accent); text-decoration: none; }
+
+/* ---------------------------------------------------------------- cover */
+.cover { height: 297mm; padding: 26mm 24mm 22mm 26mm; display: flex; flex-direction: column; break-after: page; position: relative; }
+.cover::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 9mm; background: var(--accent); }
+.studio { display: flex; align-items: center; gap: 3mm; color: var(--accent); }
+.studio svg { width: 9mm; height: 9mm; }
+.studio b { font: 600 13pt var(--serif); color: var(--ink); letter-spacing: .2px; }
+.studio span { font-size: 8.5pt; color: var(--muted); }
+.cover-body { margin-top: auto; }
+.client-logo { max-height: 20mm; max-width: 70mm; display: block; margin-bottom: 14mm; }
+.cover h1 { font: 600 38pt/1.05 var(--serif); margin: 0 0 5mm; letter-spacing: -.5px; }
+.cover .project { font: 400 17pt/1.3 var(--serif); color: var(--muted); margin: 0 0 14mm; }
+.cover-meta { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; column-gap: 14mm; row-gap: 5mm;
+  border-top: 1.5pt solid var(--ink); padding-top: 5mm; }
+.cover-meta dt { font-size: 7.5pt; color: var(--muted); margin: 0; }
+.cover-meta dd { margin: 0; font-weight: 600; font-size: 10pt; }
+.status-draft { color: #8A5A00; }
+.status-approved { color: var(--accent); }
+.confidential { margin-top: 16mm; font-size: 8pt; color: var(--muted); max-width: 120mm; }
+
+/* ---------------------------------------------------------------- front matter */
+.front { break-after: page; }
+.front h2 { margin-top: 0; }
+.toc { list-style: none; padding: 0; margin: 0; }
+.toc li { display: flex; gap: 4mm; padding: 2.2mm 0; border-bottom: .5pt solid var(--rule); }
+.toc li.sub { padding-left: 8mm; font-size: 9pt; color: var(--muted); }
+.toc .n { width: 9mm; color: var(--accent); font-variant-numeric: tabular-nums; }
+.toc a { color: inherit; }
+
+/* ---------------------------------------------------------------- headings and text */
+h2 { font: 600 19pt/1.2 var(--serif); margin: 0 0 6mm; display: flex; gap: 5mm; align-items: baseline; break-after: avoid; }
+h2 .n, h3 .n { color: var(--accent); font-variant-numeric: tabular-nums; }
+section.chapter { break-before: page; }
+h3 { font: 600 13.5pt/1.25 var(--serif); margin: 9mm 0 2mm; display: flex; gap: 4mm; align-items: baseline; break-after: avoid; }
+h4 { font: 600 9.5pt var(--sans); margin: 5mm 0 1.5mm; color: var(--ink); break-after: avoid; }
+p { margin: 0 0 3mm; }
+ul { margin: 0 0 3mm; padding-left: 5mm; }
+li { margin-bottom: 1mm; }
+.lead { font: 400 11.5pt/1.5 var(--serif); }
+.muted { color: var(--muted); }
+.meta { display: flex; gap: 6mm; font-size: 8.5pt; color: var(--muted); margin-bottom: 3mm; }
+.meta b { color: var(--ink); font-weight: 600; }
+.pending { background: #FFF3D6; color: #6B4700; padding: 0 1.2mm; border-radius: 1mm; white-space: nowrap; }
+.feature { break-inside: auto; }
+.feature + .feature { border-top: .5pt solid var(--rule); margin-top: 8mm; }
+
+/* ---------------------------------------------------------------- tables */
+table { width: 100%; border-collapse: collapse; margin: 1mm 0 4mm; font-size: 8.8pt; }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 7.8pt; border-bottom: 1pt solid var(--ink); padding: 1.6mm 2mm 1.6mm 0; }
+td { border-bottom: .5pt solid var(--rule); padding: 2mm 2mm 2mm 0; vertical-align: top; }
+tr { break-inside: avoid; }
+td.id { white-space: nowrap; color: var(--accent); font-variant-numeric: tabular-nums; width: 23mm; }
+.criteria td:nth-child(2), .criteria td:nth-child(3) { width: 27%; }
+
+/* ---------------------------------------------------------------- roadmap */
+.roadmap { list-style: none; margin: 2mm 0 0; padding: 0; }
+.roadmap > li { display: grid; grid-template-columns: 30mm 1fr; column-gap: 7mm; padding: 0 0 7mm; position: relative; break-inside: avoid; }
+.roadmap > li::before { content: ""; position: absolute; left: 30mm; margin-left: 3.5mm; top: 2mm; bottom: 0; border-left: 1pt solid var(--rule); }
+.roadmap > li:last-child::before { display: none; }
+.roadmap .when { text-align: right; }
+.roadmap .when b { display: block; font: 600 11pt var(--serif); }
+.roadmap .note { display: block; font-size: 7.8pt; color: var(--muted); }
+.roadmap .what { position: relative; padding-left: 4mm; }
+.roadmap .what::before { content: ""; position: absolute; left: -4.8mm; top: 1.6mm; width: 2.6mm; height: 2.6mm; border-radius: 50%;
+  background: var(--paper); border: 1.2pt solid var(--accent); }
+.roadmap .what h4 { font: 600 11.5pt var(--serif); margin: 0 0 1mm; }
+.roadmap .what p { margin: 0 0 2mm; color: var(--muted); }
+.roadmap .what ul { list-style: none; padding: 0; margin: 0; font-size: 9pt; }
+.roadmap .what li { margin: 0 0 .8mm; }
+.roadmap .what li .id { color: var(--accent); margin-right: 2mm; font-variant-numeric: tabular-nums; }
+.roadmap .later .what::before { border-style: dashed; }
+
+/* ---------------------------------------------------------------- approval */
+.signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: 10mm; }
+.signatures div { border-top: 1pt solid var(--ink); padding-top: 2mm; }
+.signatures b { display: block; margin-bottom: 9mm; }
+.signatures span { display: block; border-bottom: .5pt solid var(--rule); padding: 5mm 0 1mm; font-size: 8pt; color: var(--muted); }

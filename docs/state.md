@@ -77,11 +77,11 @@ updated: 2026-10-12 19:05
 |---|---|
 | project | `name`, `description`, `main_branch`, `remote` (`github`/`none`), `interface` (`web`/`none`/`mixed`), `language` (idioma de todo lo que lee el humano: `es` por defecto o `en`), `max_attempts`, `discovery` (`pending`/`done`), `architecture` (`pending`/`done`), `auto_build` (`yes`/`no`), `preview_root`, `preview_url` |
 | design | `level` (`full`/`guidelines`/`none`, vacío = sin decidir), `tool` (`claude_design` = lienzo de claude.ai / `local` = maquetas HTML del prototipador), `plugin` (skill de diseño elegida, p. ej. `frontend-design:frontend-design`, o `none`) |
-| milestone | `order` (posición), `goal`, `branch` (release), `planned` (`yes`/`no`), `closing` (`requested`/`merged`), `pr`, `design` (`approved` cuando el humano aprueba el diseño de sus pantallas), `canvas` (enlace al lienzo de Claude Design) |
+| milestone | `order` (posición), `goal`, `branch` (release), `planned` (`yes`/`no`), `closing` (`requested`/`merged`), `pr`, `functional` (`approved` cuando el cliente aprueba el documento funcional), `design` (`approved` cuando el humano aprueba el diseño de sus pantallas), `canvas` (enlace al lienzo de Claude Design) |
 | feature | `milestone`, `priority` (`must`/`should`/`later`), `version`, `depends_on`, `needs_mockup` (`yes`/`no`), `validation` (`ko`/`rejected`/vacío) |
 | task | `kind` (`technical`/`cross_cutting`/`fix`/`hotfix`), `parent`, `milestone`, `package`, `agent`, `attempts`, `depends_on`, `branch`, `pr`, `review` (`ok`/`ko`) |
 
-Todos tienen además `id`, `type`, `title`, `phase`, `status`, `reason`, `created` y `updated`. Con `waiting_human`, el campo `awaiting` dice qué se espera (`approve_spec`, `approve_design`, `approve_milestone`, `approve_milestone_design`, `approve_merge`, `present_batch`, `close_milestone`, `answer_questions`) y decide los botones del panel.
+Todos tienen además `id`, `type`, `title`, `phase`, `status`, `reason`, `created` y `updated`. Con `waiting_human`, el campo `awaiting` dice qué se espera (`approve_spec`, `approve_design`, `approve_milestone`, `approve_milestone_design`, `approve_functional_doc`, `approve_merge`, `present_batch`, `close_milestone`, `answer_questions`) y decide los botones del panel.
 
 ### Fases y situaciones
 
@@ -126,6 +126,7 @@ IDs: `M01` (hito), `F001` (funcionalidad), `T001` (tarea), `D001` (decisión), `
 | `factory sync` | Detecta PRs o ramas fusionadas (tareas a `done`, hitos a `closed`) y avanza los carriles: con `auto_build`, los hitos listos pasan a la cola; si no hay ninguno construyéndose, arranca el primero de la cola y crea su release desde la rama principal |
 | `factory design-kit` | Crea `.factory/artifacts/design/` desde la plantilla del kit (sin pisar lo existente; la galería se refresca siempre) y genera `tokens.css` |
 | `factory design-import PANTALLA.dc.html F### [--page index] [--assets DIR]` | Convierte una mesa de trabajo de Claude Design descargada en una página de la maqueta de la funcionalidad (`mockup/<page>.html`): rellena los huecos con los valores por defecto, pasa los estilos al `<head>`, quita el motor del lienzo y copia los recursos (`/_blob/<id>`) desde `DIR` (por defecto `assets/` junto a la pantalla) |
+| `factory deliverable functional [--note T] [--approve [--milestone M##]] [--check]` | Genera en PDF una nueva versión del documento funcional para el cliente en `.factory/artifacts/deliverables/functional/` (borrador 0.1, 0.2…; al aprobarlo, 1.0, 2.0…), con su historial en `history.json`. Con `--approve --milestone` registra además que el cliente aprobó la definición de ese hito. Con `--check` solo revisa la redacción de `vision.md` y las especificaciones contra la skill `functional-writing`, sin generar versión. Necesita Chrome o Chromium (`FACTORY_CHROME` para otra ruta) |
 | `factory tokens [--src tokens.json] [--out tokens.css]` | Genera variables CSS (con modo oscuro) desde un `tokens.json` en formato W3C Design Tokens. Sin argumentos usa el del kit; con `--src` sirve para el del repositorio |
 | `factory say --text T` | El orquestador escribe un mensaje en el diálogo del panel |
 | `factory panel [--port 8765] [--open]` | Sirve el panel de control en `http://127.0.0.1:<puerto>/` (si está ocupado, prueba los siguientes) y guarda la URL en `.factory/panel.url` |
@@ -148,7 +149,8 @@ Calcula qué hacer a partir del estado. El orquestador lo ejecuta en cada vuelta
 | Hito en construcción sin `planned=yes` | architect | `milestone` |
 | Feature `defined` sin `spec.md` | analyst | `specify` |
 | Feature `defined` con spec | orchestrator | `approve_spec` |
-| *Todas las especificaciones aprobadas y alguna feature con `needs_mockup=yes`:* | | |
+| Todas las especificaciones aprobadas y documento funcional sin aprobar por el cliente | orchestrator | `functional_doc` (`--awaiting approve_functional_doc`) |
+| *Documento funcional aprobado y alguna feature con `needs_mockup=yes`:* | | |
 | `tool=claude_design`, diseño del hito sin aprobar | orchestrator | `design_session` (lienzo mano a mano con el humano; `--awaiting approve_milestone_design`) |
 | `tool=claude_design`, diseño aprobado y lienzo sin descargar en `artifacts/M##/canvas/` | orchestrator | `download_design` |
 | `tool=claude_design`, lienzo descargado y features sin maqueta | prototyper | `import_design` (maquetas y kit) |
@@ -170,7 +172,7 @@ Modos que no salen de `factory next` y lanza el orquestador según la situación
 
 La arquitectura base y la elección de diseño van después del descubrimiento y pueden avanzar en paralelo (son elementos distintos). Los hitos esperan a que los dos estén listos. Con `tool=local` eso incluye el kit aprobado, para que las maquetas salgan con él; con `tool=claude_design` basta con la elección, porque la identidad sale del diseño del primer hito.
 
-Un hito está **listo para construir** cuando no le queda ninguna especificación por aprobar y, si tiene pantallas, su diseño está aprobado y cada funcionalidad con pantallas tiene maqueta.
+Un hito está **listo para construir** cuando no le queda ninguna especificación por aprobar, el cliente ha aprobado el documento funcional y, si tiene pantallas, su diseño está aprobado y cada funcionalidad con pantallas tiene maqueta.
 
 ## Actividad: `.factory/activity.json`
 

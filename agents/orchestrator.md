@@ -47,8 +47,9 @@ Antes de nada, lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md`: describe `.fac
 4. **Aprobar el hito** ✋ (`approve_milestone_first`, o «Iniciar definición» en el panel): empieza su definición.
 5. **Definición del hito**, por este orden:
    1. El analista especifica sus funcionalidades y el humano aprueba cada especificación ✋ (`approve_spec`).
-   2. Con todas aprobadas, si el hito tiene pantallas, **diseño**: sesión en Claude Design contigo (`design_session`) o maquetas locales del prototipador. El humano aprueba el diseño del hito ✋.
-   3. Diseño aprobado → se baja a local: una maqueta por funcionalidad y el kit de diseño al día.
+   2. Con todas aprobadas, **documento funcional** para el cliente (`functional_doc`): el humano se lo envía y registra su aprobación ✋.
+   3. Después, si el hito tiene pantallas, **diseño**: sesión en Claude Design contigo (`design_session`) o maquetas locales del prototipador. El humano aprueba el diseño del hito ✋.
+   4. Diseño aprobado → se baja a local: una maqueta por funcionalidad y el kit de diseño al día.
 6. **Comenzar construcción** ✋ (botón del panel, o automática). Un hito a la vez; los demás esperan en cola.
 7. **Construcción**: release, diseño técnico, tareas, PRs revisadas por el validador y fusionadas por el humano ✋.
 8. **Lote de aceptación** ✋ y **cierre del hito** ✋ (la release se fusiona en la rama principal). Sigue el siguiente de la cola.
@@ -64,7 +65,7 @@ Cada hito es una ola de construcción con dos carriles:
 
 Fases del hito: `proposed → defining → queued → building → closed`.
 
-- **«Comenzar construcción»** lo decide el humano (botón del panel, o `factory start-build M##` si te lo pide en la terminal). Solo se puede cuando todas sus especificaciones están aprobadas y, si tiene pantallas, su diseño está aprobado y bajado a local. Si ya hay otro hito construyéndose, queda en cola.
+- **«Comenzar construcción»** lo decide el humano (botón del panel, o `factory start-build M##` si te lo pide en la terminal). Solo se puede cuando todas sus especificaciones están aprobadas, el cliente ha aprobado el documento funcional y, si tiene pantallas, su diseño está aprobado y bajado a local. Si ya hay otro hito construyéndose, queda en cola.
 - Con la **construcción automática** activada (`auto_build: yes`), un hito pasa a la cola en cuanto su definición está aprobada.
 - El paso de la cola a construcción y la creación de la release desde la rama principal **los hace `factory sync` solo**. No los hagas a mano.
 - El **diseño técnico** es del carril de construcción: el arquitecto diseña cuando el hito empieza a construirse, sobre el código real de ese momento.
@@ -117,6 +118,7 @@ Para presentar un punto de decisión:
    | Aprobar kit de diseño (ID `design`) | `approve_design` |
    | Aprobar hito | `approve_milestone` |
    | Aprobar el diseño de un hito | `approve_milestone_design` |
+   | Aprobación del documento funcional por el cliente | `approve_functional_doc` |
    | Fusionar una PR | `approve_merge` |
    | Lote de aceptación | `present_batch` |
    | Fusionar la release | `close_milestone` |
@@ -141,6 +143,7 @@ Lo que el humano hace en el panel te llega como un aviso del monitor que empieza
 
 - No vuelvas a registrar la decisión ni a cambiar el estado. **Comprueba el estado real** (`factory show <ID>` o `factory next`) antes de actuar: manda el estado, no el texto del aviso.
 - Continúa el bucle: si el aviso dice que se pidieron cambios o se respondieron preguntas, relanza al agente que corresponda con la decisión en el contexto; si no, sigue con `factory next`.
+- **Documento funcional generado desde el panel** (botón «Generar documento funcional»): ya está creado. Si el aviso trae avisos de redacción, corrígelos en el origen como en `functional_doc` y genera otra versión.
 - **Mensajes del humano** (`Mensaje del humano desde el panel: …`): es el humano hablándote desde el diálogo. Contéstale con `factory say --text "…"` (breve, sin la verbosidad de la terminal) y actúa como si te lo hubiera escrito en la terminal. Si te pide aprobar o descartar algo, déjalo listo en «Te espera» para que lo confirme con el botón.
 - **Cambios en hitos y funcionalidades hechos desde el panel** (crear, mover, reordenar o borrar hitos; mover funcionalidades): el panel ya los ha aplicado. Actualiza `roadmap.md` para que refleje el nuevo reparto y sigue.
 - **Funcionalidad nueva pedida desde el panel**: ya está creada en el hito elegido (o en «más adelante»). Antes de que se especifique, comprueba:
@@ -203,6 +206,13 @@ Con `tool=local` el prototipador crea primero el kit (`design_system`) y lo apru
 - **Cambios**: registra la decisión y relanza al analyst con `Mode: revise_spec` y la decisión en el contexto (y al prototyper, si ya tenía maqueta y le afecta). Luego vuelve a presentarla.
 - **Aplazar**: `factory phase F### postponed` y actualiza `roadmap.md`.
 - **Descartar**: `factory phase F### discarded`.
+
+**`functional_doc`** (todas las especificaciones del hito aprobadas por el humano):
+1. Comprueba la redacción con `factory deliverable functional --check`. Si hay avisos en las especificaciones, relanza al analyst con `Mode: revise_spec` y los avisos en el contexto; si son de `vision.md`, corrígelos tú (es tuya). Después genera la nueva versión: `factory deliverable functional --note "<qué cambia: p. ej. Hito 1 definido>"`. Es un PDF formal para el cliente con la identidad del estudio: visión, roadmap completo, el detalle de los hitos especificados, supuestos, lo pendiente del cliente y la página de firma. Sale de `vision.md` y de las especificaciones: si algo se ve mal en el documento, se corrige en su origen y se vuelve a generar.
+2. Márcalo: `factory status M## waiting_human --reason "Aprobación del cliente del documento funcional" --awaiting approve_functional_doc`.
+3. Con `factory say`, dile al humano que el documento está en la vista Producto (botón «Documento funcional») para enviárselo al cliente, y que registre su respuesta con los botones cuando la tenga. Termina el turno.
+4. **Aprobado** (lo aplica el panel; en la terminal, `factory deliverable functional --approve --milestone M##` y registra la decisión): se genera la versión aprobada y el hito pasa al diseño.
+5. **Cambios del cliente**: registra la decisión y relanza al analyst con `Mode: revise_spec` sobre las funcionalidades afectadas; tras aprobarlas el humano, vuelve al paso 1 (nueva versión).
 
 **`design_session`** (hito con pantallas, especificaciones aprobadas, `tool=claude_design`). Lo haces tú, mano a mano con el humano:
 

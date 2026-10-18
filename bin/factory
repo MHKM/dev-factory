@@ -12,10 +12,12 @@ history) follows the project's `language` (es | en).
 from __future__ import annotations
 
 import argparse
+import base64
 import datetime as dt
 import html
 import json
 import mimetypes
+import os
 import re
 import shutil
 import subprocess
@@ -55,7 +57,7 @@ BACKLOG = "-"  # milestone value of features parked for "later"
 
 FIELDS = {
     "milestone": ["id", "type", "title", "order", "phase", "status", "reason", "goal", "branch",
-                  "planned", "closing", "pr", "design", "canvas", "created", "updated"],
+                  "planned", "closing", "pr", "functional", "design", "canvas", "created", "updated"],
     "feature": ["id", "type", "title", "milestone", "phase", "status", "reason", "priority",
                 "version", "depends_on", "needs_mockup", "validation", "created", "updated"],
     "task": ["id", "type", "title", "kind", "parent", "milestone", "package", "phase", "status",
@@ -147,7 +149,30 @@ MESSAGES = {
     "w_approve_design": ("Aprobación del kit de diseño", "Design kit approval"),
     "w_approve_milestone": ("Aprobación del hito", "Milestone approval"),
     "w_approve_milestone_design": ("Aprobación del diseño del hito", "Milestone design approval"),
+    "w_none": ("Sin avisos: la visión y las especificaciones cumplen las reglas de redacción.",
+               "No warnings: the vision and the specs follow the writing rules."),
+    "w_header": ("{n} avisos de redacción (skill functional-writing); corrígelos en el origen:",
+                 "{n} writing warnings (functional-writing skill); fix them at the source:"),
+    "w_no_vision": ("Falta vision.md", "vision.md is missing"),
+    "w_missing_section": ("{where}: falta la sección «{section}»", "{where}: section '{section}' is missing"),
+    "w_criterion_form": ("{where}: {id} no sigue la forma «Dado …, cuando …, entonces …»",
+                         "{where}: {id} does not follow 'Given …, when …, then …'"),
+    "w_criterion_id": ("{where}: {id} no corresponde a esta funcionalidad", "{where}: {id} does not belong to this feature"),
+    "w_jargon": ("{where}: tecnicismo «{word}»", "{where}: technical term '{word}'"),
+    "w_backticks": ("{where}: texto entre comillas invertidas (formato técnico)", "{where}: text in backticks (technical formatting)"),
+    "w_bad_pending": ("{where}: dato pendiente mal marcado «{mark}»; usa [pendiente: …]",
+                      "{where}: badly marked pending data '{mark}'; use [pending: …]"),
+    "in_generated": ("El humano ha generado desde el panel la versión {v} del documento funcional ({path}).",
+                     "The human generated version {v} of the functional document from the panel ({path})."),
+    "in_generated_warn": (" Avisos de redacción, corrígelos en el origen relanzando al analista: {w}",
+                          " Writing warnings, fix them at the source by relaunching the analyst: {w}"),
+    "w_approve_functional_doc": ("Aprobación del documento funcional", "Functional document approval"),
+    "log_functional_approved": ("Documento funcional aprobado por el cliente (v{v})", "Functional document approved by the client (v{v})"),
+    "not_ready_functional": ("{id} aún no está listo para construir: falta que el cliente apruebe el documento funcional",
+                             "{id} is not ready to build yet: the client has not approved the functional document"),
     "log_design_approved": ("Diseño del hito aprobado", "Milestone design approved"),
+    "no_chrome": ("No encuentro Chrome ni Chromium para generar el PDF; indica su ruta en FACTORY_CHROME",
+                  "Chrome or Chromium not found to print the PDF; set its path in FACTORY_CHROME"),
     "not_dc": ("No es una mesa de trabajo de Claude Design (falta <x-dc>)",
                "Not a Claude Design artboard (no <x-dc>)"),
     "dc_unresolved": ("Huecos sin valor por defecto: {holes}", "Holes without a default value: {holes}"),
@@ -797,10 +822,19 @@ def missing_design(m: Doc, docs: list, root: Path) -> list:
     return [f.id for f in ui if not artifacts(root, f)["mockup"].exists()]
 
 
+def functional_pending(m: Doc, docs: list) -> bool:
+    """The client has not approved the functional document covering this milestone yet."""
+    has_features = any(f.type == "feature" and f["milestone"] == m.id
+                       and f["phase"] not in ("postponed", "discarded") for f in docs)
+    return has_features and m["functional"] != "approved"
+
+
 def is_ready(m: Doc, docs: list, root: Path) -> bool:
-    """Ready to build when every spec of the milestone is approved and, if it has screens, its
-    design is approved and imported. A milestone with no features is ready as well."""
-    return not missing_specs(m, docs) and not missing_design(m, docs, root)
+    """Ready to build when every spec of the milestone is approved, the client approved the
+    functional document and, if it has screens, its design is approved and imported.
+    A milestone with no features is ready as well."""
+    return (not missing_specs(m, docs) and not functional_pending(m, docs)
+            and not missing_design(m, docs, root))
 
 
 def advance_milestones(root: Path) -> list:
@@ -937,6 +971,8 @@ def start_build(root: Path, ident: str) -> list:
     missing = missing_specs(m, docs)
     if missing:
         raise Error(msg("not_ready", id=m.id, missing=", ".join(missing)))
+    if functional_pending(m, docs):
+        raise Error(msg("not_ready_functional", id=m.id))
     design = missing_design(m, docs, root)
     if design:
         raise Error(msg("not_ready_design", id=m.id, missing=", ".join(design)))
@@ -1181,6 +1217,493 @@ def cmd_design_import(a) -> None:
         print(msg("dc_missing_assets", ids=", ".join(missing), dir=asset_dir))
 
 
+# --------------------------------------------------------------------------- deliverables
+
+DOC_LABELS = {
+    "functional": ("Documento funcional", "Functional specification"),
+    "file_functional": ("documento-funcional", "functional-specification"),
+    "version": ("Versión", "Version"), "date": ("Fecha", "Date"), "status": ("Estado", "Status"),
+    "for": ("Preparado para", "Prepared for"), "by": ("Preparado por", "Prepared by"),
+    "draft": ("Borrador para aprobación", "Draft for approval"), "approved": ("Aprobado", "Approved"),
+    "confidential": ("Documento confidencial preparado para {client}. No debe distribuirse sin su autorización.",
+                     "Confidential document prepared for {client}. Not to be distributed without their consent."),
+    "history": ("Control de versiones", "Version history"), "changes": ("Cambios", "Changes"),
+    "first_version": ("Primera versión", "First version"), "contents": ("Índice", "Contents"),
+    "intro": ("Introducción", "Introduction"), "objective": ("Objetivo", "Objective"),
+    "audience": ("Destinatarios", "Audience"), "scope": ("Alcance", "Scope"),
+    "roadmap": ("Roadmap", "Roadmap"),
+    "roadmap_lead": ("El producto se construye por hitos. Cada hito termina en algo que se puede usar y aprobar; "
+                     "los hitos lejanos se detallarán cuando les llegue el turno.",
+                     "The product is built in milestones. Each one ends in something usable that you can approve; "
+                     "later milestones will be detailed when their turn comes."),
+    "milestone_n": ("Hito {n}", "Milestone {n}"), "later": ("Más adelante", "Later"),
+    "later_lead": ("Ideas para versiones futuras.", "Ideas for future versions."),
+    "chapter_ms": ("Hito {n}: {title}", "Milestone {n}: {title}"),
+    "goal": ("Al terminar este hito se puede: {goal}", "When this milestone is done you can: {goal}"),
+    "priority": ("Prioridad", "Priority"), "must": ("imprescindible", "must have"),
+    "should": ("deseable", "nice to have"), "p_later": ("más adelante", "later"),
+    "need": ("Necesidad", "Need"), "behaviour": ("Comportamiento", "Behaviour"),
+    "criteria": ("Criterios de aceptación", "Acceptance criteria"),
+    "criteria_lead": ("Cada criterio se comprobará en la entrega del hito.",
+                      "Each criterion will be checked when the milestone is delivered."),
+    "c_when": ("Situación", "Situation"), "c_action": ("Acción", "Action"), "c_result": ("Resultado esperado", "Expected result"),
+    "data": ("Datos", "Data"), "out_scope": ("Fuera de alcance", "Out of scope"),
+    "assumptions": ("Supuestos y dependencias", "Assumptions and dependencies"),
+    "context": ("Contexto y restricciones", "Context and constraints"),
+    "pending_client": ("Pendiente del cliente", "Pending from the client"),
+    "pending_lead": ("Información que necesitamos para completar el producto. Puede enviarse en cualquier momento; "
+                     "hasta entonces aparece marcada en las maquetas.",
+                     "Information we need to complete the product. It can be sent at any time; "
+                     "until then it is marked in the mockups."),
+    "item": ("Dato", "Item"), "where": ("Dónde se usa", "Where it is used"),
+    "open_questions": ("Preguntas abiertas", "Open questions"),
+    "glossary": ("Glosario", "Glossary"), "approval": ("Aprobación", "Approval"),
+    "approval_text": ("Con la firma de este documento, ambas partes aprueban la versión {v} del alcance funcional descrito. "
+                      "Los cambios posteriores se tratarán como nuevas versiones.",
+                      "By signing this document, both parties approve version {v} of the functional scope described. "
+                      "Later changes will be handled as new versions."),
+    "for_client": ("Por {client}", "For {client}"), "for_studio": ("Por {studio}", "For {studio}"),
+    "sig_name": ("Nombre", "Name"), "sig_role": ("Cargo", "Role"), "sig_date": ("Fecha", "Date"), "sig_sign": ("Firma", "Signature"),
+    "vision": ("Visión", "Vision"), "general": ("General", "General"),
+    "pending_mark": ("Pendiente", "Pending"),
+}
+MONTHS = {"es": ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
+                 "octubre", "noviembre", "diciembre"],
+          "en": ["January", "February", "March", "April", "May", "June", "July", "August", "September",
+                 "October", "November", "December"]}
+# Spec headings as the analyst writes them, in either language.
+SPEC_SECTIONS = {"need": ("Necesidad", "Need"), "behaviour": ("Comportamiento", "Behaviour"),
+                 "criteria": ("Criterios de aceptación", "Acceptance criteria"), "data": ("Datos", "Data"),
+                 "out": ("Fuera de alcance", "Out of scope"),
+                 "assumptions": ("Supuestos y preguntas resueltas", "Assumptions and resolved questions")}
+VISION_SECTIONS = {"objective": ("Objetivo", "Objective"), "audience": ("Destinatarios", "Audience"),
+                   "scope": ("Alcance", "Scope"), "context": ("Restricciones y datos de contexto", "Constraints and context"),
+                   "glossary": ("Glosario", "Glossary"), "questions": ("Preguntas abiertas", "Open questions")}
+PENDING_RE = re.compile(r"\[(?:pendiente|pending)\s*:?\s*([^\]]*)\]", re.I)
+
+
+def L(key: str, **kw) -> str:
+    es, en = DOC_LABELS[key]
+    return (en if LANG == "en" else es).format(**kw)
+
+
+def _long_date(day: str) -> str:
+    d = dt.date.fromisoformat(day[:10])
+    month = MONTHS[LANG][d.month - 1]
+    return f"{d.day} {month} {d.year}" if LANG == "en" else f"{d.day} de {month} de {d.year}"
+
+
+def _md_sections(text: str, names: dict) -> dict:
+    """Split a markdown artifact by '## ' headings into {key: content} using the known names."""
+    out = {}
+    marks = list(re.finditer(r"^## (.+?)\s*$", text, re.M))
+    for i, m in enumerate(marks):
+        end = marks[i + 1].start() if i + 1 < len(marks) else len(text)
+        title = m.group(1).strip().lower()
+        for key, variants in names.items():
+            if title in (v.lower() for v in variants):
+                out[key] = text[m.end():end].strip()
+    return out
+
+
+def _md_inline(text: str) -> str:
+    t = html.escape(text, quote=False)
+    t = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", t)
+    t = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", t)
+    t = re.sub(r"`([^`]+)`", r"<code>\1</code>", t)
+    t = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r'<a href="\2">\1</a>', t)
+    return PENDING_RE.sub(lambda m: f'<span class="pending">{L("pending_mark")}: {m.group(1).strip() or "…"}</span>', t)
+
+
+def _md(text: str) -> str:
+    """Small markdown renderer for the artifacts' prose: paragraphs, lists, tables, emphasis."""
+    out, para, items, rows = [], [], [], []
+
+    def flush():
+        if para:
+            out.append("<p>" + "<br>".join(_md_inline(x) for x in para) + "</p>")
+            para.clear()
+        if items:
+            out.append("<ul>" + "".join(f"<li>{_md_inline(x)}</li>" for x in items) + "</ul>")
+            items.clear()
+        if rows:
+            head, *body = [r for r in rows if not re.fullmatch(r"\|?[\s:|-]+\|?", r)]
+            cells = lambda r: [c.strip() for c in r.strip().strip("|").split("|")]
+            out.append("<table><tr>" + "".join(f"<th>{_md_inline(c)}</th>" for c in cells(head)) + "</tr>"
+                       + "".join("<tr>" + "".join(f"<td>{_md_inline(c)}</td>" for c in cells(r)) + "</tr>"
+                                 for r in body) + "</table>")
+            rows.clear()
+
+    for line in text.splitlines():
+        s = line.strip()
+        kind = "row" if s.startswith("|") else "item" if re.match(r"^([-*]|\d+\.)\s", s) else "text" if s else ""
+        if (kind != "text" and para) or (kind != "item" and items) or (kind != "row" and rows):
+            flush()
+        if kind == "row":
+            rows.append(s)
+        elif kind == "item":
+            items.append(re.sub(r"^([-*]|\d+\.)\s+", "", s))
+        elif kind == "text" and not s.startswith("#") and not s.startswith(">"):
+            para.append(s)
+    flush()
+    return "\n".join(out)
+
+
+def _criteria(text: str) -> list:
+    """[(id, situation, action, result)] from the spec's acceptance criteria."""
+    out = []
+    for m in re.finditer(r"\*\*(AC-[\w-]+)\*\*\s*[—–-]\s*(.+)", text):
+        body = m.group(2).strip().rstrip(".")
+        g = (re.match(r"(?i)^(?:dado (?:que )?|given (?:that )?)(.*?),\s*(?:cuando|when) (.*?),\s*(?:entonces|then) (.*)$", body)
+             or re.match(r"(?i)^(?:dado (?:que )?|given (?:that )?)(.*?)(),\s*(?:entonces|then) (.*)$", body))
+        cap = lambda x: (x[:1].upper() + x[1:] + ".") if x else "—"
+        out.append((m.group(1), cap(g.group(1)), cap(g.group(2)), cap(g.group(3))) if g
+                   else (m.group(1), cap(body), "—", "—"))
+    return out
+
+
+def studio_identity() -> tuple:
+    """(identity dict, logo svg/img html). ~/.factory/studio/ overrides the plugin's placeholder."""
+    own = Path.home() / ".factory" / "studio"
+    base = own if (own / "studio.json").exists() else TEMPLATES / "deliverables"
+    ident = json.loads((base / "studio.json").read_text(encoding="utf-8"))
+    logo = ""
+    for name in ("logo.svg", "studio-logo.svg", "logo.png"):
+        p = base / name
+        if p.exists():
+            logo = (p.read_text(encoding="utf-8") if p.suffix == ".svg"
+                    else f'<img src="{_data_uri(p)}" alt="">')
+            break
+    return ident, logo
+
+
+def _data_uri(path: Path) -> str:
+    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
+
+
+def _client_logo(root: Path) -> str:
+    assets = root / ".factory" / "artifacts" / "design" / "assets"
+    found = sorted(assets.glob("logo.*")) if assets.is_dir() else []
+    return f'<img class="client-logo" src="{_data_uri(found[0])}" alt="">' if found else ""
+
+
+def _next_version(history: list, approve: bool) -> str:
+    if not history:
+        return "1.0" if approve else "0.1"
+    major, minor = (int(x) for x in history[-1]["version"].split("."))
+    if approve:
+        return history[-1]["version"] if history[-1]["status"] == "approved" else f"{major + 1}.0"
+    return f"{major}.{minor + 1}"
+
+
+def find_chrome() -> str:
+    candidates = [os.environ.get("FACTORY_CHROME", ""),
+                  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                  "/Applications/Chromium.app/Contents/MacOS/Chromium",
+                  shutil.which("google-chrome") or "", shutil.which("chromium") or "",
+                  shutil.which("chromium-browser") or ""]
+    for c in candidates:
+        if c and Path(c).exists():
+            return c
+    raise Error(msg("no_chrome"))
+
+
+def print_pdf(page: Path, pdf: Path) -> None:
+    subprocess.run([find_chrome(), "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
+                    "--virtual-time-budget=8000", "--run-all-compositor-stages-before-draw",
+                    f"--print-to-pdf={pdf}", page.resolve().as_uri()],
+                   check=True, capture_output=True)
+
+
+def functional_html(root: Path, version: str, status: str, history: list) -> str:
+    p = project(root)
+    ident, studio_logo = studio_identity()
+    client = str(p["client"] or p["name"])
+    arts = root / ".factory" / "artifacts"
+    vision_text = (arts / "vision.md").read_text(encoding="utf-8") if (arts / "vision.md").exists() else ""
+    vision = _md_sections(vision_text, VISION_SECTIONS)
+    docs = load_all(root)
+    features = [d for d in docs if d.type == "feature" and d["phase"] not in ("discarded",)]
+    milestones = [m for m in milestones_sorted(docs)]
+    pending, assumptions, toc, body = [], [], [], []
+    seen_pending = set()
+
+    def collect(text: str, where: str) -> None:
+        for m in PENDING_RE.finditer(text):
+            item = m.group(1).strip()
+            if item and (item, where) not in seen_pending:
+                seen_pending.add((item, where))
+                pending.append((item, where))
+
+    def chapter(n: int, key: str, title: str, content: str, subs=()) -> None:
+        toc.append(f'<li><span class="n">{n}</span><a href="#{key}">{html.escape(title)}</a></li>')
+        toc.extend(f'<li class="sub"><span class="n">{n}.{i}</span>{html.escape(s)}</li>' for i, s in enumerate(subs, 1))
+        body.append(f'<section class="chapter" id="{key}"><h2><span class="n">{n}</span>{html.escape(title)}</h2>{content}</section>')
+
+    # 1 Introduction
+    collect(vision_text, L("general"))
+    intro, subs = [], []
+    for key, label in (("objective", "objective"), ("audience", "audience"), ("scope", "scope")):
+        if vision.get(key):
+            subs.append(L(label))
+            intro.append(f'<h3><span class="n">1.{len(subs)}</span>{L(label)}</h3>'
+                         + (f'<div class="lead">{_md(vision[key])}</div>' if key == "objective" else _md(vision[key])))
+    chapter(1, "intro", L("intro"), "".join(intro), subs)
+
+    # 2 Roadmap
+    def ms_number(m):
+        return milestones.index(m) + 1
+    road = [f'<p>{L("roadmap_lead")}</p><ol class="roadmap">']
+    for m in milestones:
+        own = [f for f in features if f["milestone"] == m.id and f["phase"] != "postponed"]
+        road.append(f'<li><div class="when"><b>{L("milestone_n", n=ms_number(m))}</b></div>'
+                    f'<div class="what"><h4>{html.escape(m["title"] or "")}</h4>'
+                    + (f'<p>{_md_inline(str(m["goal"]))}</p>' if m["goal"] else "")
+                    + "<ul>" + "".join(f'<li><span class="id">{f.id}</span>{html.escape(f["title"] or "")}</li>' for f in own)
+                    + "</ul></div></li>")
+    later = [f for f in features if f["milestone"] == BACKLOG or f["phase"] == "postponed"]
+    if later:
+        road.append(f'<li class="later"><div class="when"><b>{L("later")}</b><span class="note">{L("later_lead")}</span></div>'
+                    '<div class="what"><ul>' + "".join(f'<li><span class="id">{f.id}</span>{html.escape(f["title"] or "")}</li>'
+                                                      for f in later) + "</ul></div></li>")
+    road.append("</ol>")
+    chapter(2, "roadmap", L("roadmap"), "".join(road))
+
+    # 3.. one chapter per milestone with at least one written spec
+    n = 2
+    for m in milestones:
+        own = [f for f in features if f["milestone"] == m.id and f["phase"] != "postponed"]
+        if not any(artifacts(root, f)["spec"].exists() for f in own):
+            continue
+        n += 1
+        goal = str(m["goal"] or "")
+        parts = [f'<p class="lead">{_md_inline(L("goal", goal=goal[:1].lower() + goal[1:]))}</p>' if goal else ""]
+        subs = []
+        for f in own:
+            subs.append(f["title"] or f.id)
+            spec_path = artifacts(root, f)["spec"]
+            prio = {"must": "must", "should": "should", "later": "p_later"}.get(str(f["priority"]), "must")
+            head = (f'<div class="feature"><h3><span class="n">{n}.{len(subs)}</span>{html.escape(f["title"] or "")}</h3>'
+                    f'<div class="meta"><span>{f.id}</span><span>{L("priority")}: <b>{L(prio)}</b></span>'
+                    '</div>')
+            if not spec_path.exists():
+                desc = read_section(f.body, SEC_DESCRIPTION)
+                parts.append(head + _md(desc) + '</div>')
+                continue
+            text = spec_path.read_text(encoding="utf-8")
+            collect(text, f'{f.id} {f["title"]}')
+            sec = _md_sections(text, SPEC_SECTIONS)
+            block = [head]
+            if sec.get("need"):
+                block.append(f'<h4>{L("need")}</h4><div class="lead">{_md(sec["need"])}</div>')
+            if sec.get("behaviour"):
+                block.append(f'<h4>{L("behaviour")}</h4>{_md(sec["behaviour"])}')
+            crit = _criteria(sec.get("criteria", ""))
+            if crit:
+                block.append(f'<h4>{L("criteria")}</h4><table class="criteria"><tr><th>ID</th><th>{L("c_when")}</th>'
+                             f'<th>{L("c_action")}</th><th>{L("c_result")}</th></tr>'
+                             + "".join(f'<tr><td class="id">{c[0]}</td><td>{_md_inline(c[1])}</td><td>{_md_inline(c[2])}</td>'
+                                       f'<td>{_md_inline(c[3])}</td></tr>' for c in crit) + "</table>")
+            if sec.get("data"):
+                block.append(f'<h4>{L("data")}</h4>{_md(sec["data"])}')
+            if sec.get("out"):
+                block.append(f'<h4>{L("out_scope")}</h4>{_md(sec["out"])}')
+            if sec.get("assumptions"):
+                assumptions.append((f'{f.id} {f["title"]}', sec["assumptions"]))
+            parts.append("".join(block) + "</div>")
+        chapter(n, m.id, L("chapter_ms", n=ms_number(m), title=m["title"]), "".join(parts), subs)
+
+    # Assumptions and dependencies
+    if vision.get("context") or assumptions:
+        n += 1
+        content = (f'<h4>{L("context")}</h4>{_md(vision["context"])}' if vision.get("context") else "")
+        content += "".join(f'<h4>{html.escape(where)}</h4>{_md(text)}' for where, text in assumptions)
+        chapter(n, "assumptions", L("assumptions"), content)
+
+    # Pending from the client
+    if pending or vision.get("questions"):
+        n += 1
+        content = f'<p>{L("pending_lead")}</p>'
+        if pending:
+            content += (f'<table><tr><th>{L("item")}</th><th>{L("where")}</th></tr>'
+                        + "".join(f"<tr><td>{html.escape(i[:1].upper() + i[1:])}</td><td>{html.escape(w)}</td></tr>"
+                                  for i, w in pending) + "</table>")
+        if vision.get("questions"):
+            content += f'<h4>{L("open_questions")}</h4>{_md(vision["questions"])}'
+        chapter(n, "pending", L("pending_client"), content)
+
+    if vision.get("glossary"):
+        n += 1
+        chapter(n, "glossary", L("glossary"), _md(vision["glossary"]))
+
+    n += 1
+    sig = lambda who: (f'<div><b>{html.escape(who)}</b>' + "".join(f"<span>{L(k)}</span>" for k in
+                                                                   ("sig_name", "sig_role", "sig_date", "sig_sign")) + "</div>")
+    chapter(n, "approval", L("approval"),
+            f'<p>{L("approval_text", v=version)}</p><div class="signatures">'
+            f'{sig(L("for_client", client=client))}{sig(L("for_studio", studio=ident["legal_name"]))}</div>')
+
+    rows = "".join(f'<tr><td>{h["version"]}</td><td>{_long_date(h["date"])}</td><td>{L(h["status"])}</td>'
+                   f'<td>{html.escape(h.get("note") or "")}</td></tr>' for h in history)
+    title = L("functional")
+    footer = f"{ident['legal_name']}    {title}, v{version}".replace('"', "")
+    css = (TEMPLATES / "deliverables" / "document.css").read_text(encoding="utf-8")
+    tagline = ident.get("tagline", {}).get(LANG, "") if isinstance(ident.get("tagline"), dict) else ident.get("tagline", "")
+    return f"""<!doctype html>
+<html lang="{LANG}"><head><meta charset="utf-8"><title>{html.escape(title)}: {html.escape(str(p["name"]))} v{version}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>:root{{--accent:{ident["accent"]};--ink:{ident["ink"]}}}
+{css}
+@page {{ @bottom-left {{ content: "{footer}"; white-space: pre; font: 7.5pt "Public Sans", Arial, sans-serif; color: #5B6670; }} }}
+@page :first {{ @bottom-left {{ content: none; }} }}</style></head>
+<body>
+<section class="cover">
+  <div class="studio">{studio_logo}<div><b>{html.escape(ident["legal_name"])}</b><br><span>{html.escape(tagline)}</span></div></div>
+  <div class="cover-body">
+    {_client_logo(root)}
+    <h1>{html.escape(title)}</h1>
+    <p class="project">{html.escape(str(p["name"]))}</p>
+    <dl class="cover-meta">
+      <div><dt>{L("version")}</dt><dd>{version}</dd></div>
+      <div><dt>{L("date")}</dt><dd>{_long_date(history[-1]["date"])}</dd></div>
+      <div><dt>{L("status")}</dt><dd class="status-{status}">{L(status)}</dd></div>
+      <div><dt>{L("for")}</dt><dd>{html.escape(client)}</dd></div>
+      <div><dt>{L("by")}</dt><dd>{html.escape(ident["legal_name"])}</dd></div>
+      <div><dt>{html.escape(ident.get("city", ""))}</dt><dd>{html.escape(ident.get("email", ""))}</dd></div>
+    </dl>
+    <p class="confidential">{html.escape(L("confidential", client=client))}</p>
+  </div>
+</section>
+<section class="front">
+  <h2>{L("history")}</h2>
+  <table><tr><th>{L("version")}</th><th>{L("date")}</th><th>{L("status")}</th><th>{L("changes")}</th></tr>{rows}</table>
+  <h2 style="margin-top:12mm">{L("contents")}</h2>
+  <ol class="toc">{"".join(toc)}</ol>
+</section>
+{"".join(body)}
+</body></html>"""
+
+
+JARGON = re.compile(r"\b(API|backend|frontend|base de datos|database|endpoint|JSON|HTML|CSS|servidor|server|"
+                    r"componente|component|regex|h[1-6])\b", re.I)
+BAD_PENDING = re.compile(r"\[[A-ZÁÉÍÓÚÑ ]{3,}\]|\bXX\b|\bTBD\b|\bTODO\b|[Pp]or definir")
+
+
+def functional_warnings(root: Path) -> list:
+    """What breaks the functional-writing rules in vision.md and the specs (see that skill)."""
+    set_lang(root)
+    warnings = []
+    arts = root / ".factory" / "artifacts"
+
+    def scan(text: str, where: str) -> None:
+        clean = PENDING_RE.sub("", text)
+        for m in sorted(set(x.group(0) for x in JARGON.finditer(clean))):
+            warnings.append(msg("w_jargon", where=where, word=m))
+        if "`" in clean:
+            warnings.append(msg("w_backticks", where=where))
+        for m in sorted(set(x.group(0) for x in BAD_PENDING.finditer(clean))):
+            warnings.append(msg("w_bad_pending", where=where, mark=m))
+
+    vision_path = arts / "vision.md"
+    if not vision_path.exists():
+        warnings.append(msg("w_no_vision"))
+    else:
+        vision = _md_sections(vision_path.read_text(encoding="utf-8"), VISION_SECTIONS)
+        for key in ("objective", "audience", "scope"):
+            if not vision.get(key):
+                warnings.append(msg("w_missing_section", where="vision.md", section=VISION_SECTIONS[key][0 if LANG == "es" else 1]))
+        scan("\n".join(v for k, v in vision.items()), "vision.md")
+    for f in load_all(root):
+        if f.type != "feature":
+            continue
+        spec = artifacts(root, f)["spec"]
+        if not spec.exists():
+            continue
+        text = spec.read_text(encoding="utf-8")
+        sec = _md_sections(text, SPEC_SECTIONS)
+        where = f"{f.id} spec.md"
+        for key in ("need", "behaviour", "criteria"):
+            if not sec.get(key):
+                warnings.append(msg("w_missing_section", where=where, section=SPEC_SECTIONS[key][0 if LANG == "es" else 1]))
+        for c in _criteria(sec.get("criteria", "")):
+            if c[3] == "—":
+                warnings.append(msg("w_criterion_form", where=where, id=c[0]))
+            elif not c[0].startswith(f"AC-{f.id}-"):
+                warnings.append(msg("w_criterion_id", where=where, id=c[0]))
+        scan("\n".join(sec.get(k, "") for k in ("need", "behaviour", "criteria", "data", "out")), where)
+    return warnings
+
+
+def make_deliverable(root: Path, kind: str, approve: bool = False, note: str = "") -> Path:
+    """Render a new version of a deliverable (draft, or approved by the client) to PDF."""
+    set_lang(root)
+    out_dir = root / ".factory" / "artifacts" / "deliverables" / kind
+    out_dir.mkdir(parents=True, exist_ok=True)
+    hist_path = out_dir / "history.json"
+    history = json.loads(hist_path.read_text(encoding="utf-8")) if hist_path.exists() else []
+    version = _next_version(history, approve)
+    status = "approved" if approve else "draft"
+    note = note or (history[-1].get("note") if approve and history else "") or (
+        L("first_version") if not history else "")
+    entry = {"version": version, "date": now()[:10], "status": status, "note": note}
+    if history and history[-1]["version"] == version:
+        history[-1] = entry
+    else:
+        history.append(entry)
+    page = functional_html(root, version, status, history)
+    name = f"{slug(str(project(root)['name']))}-{L('file_' + kind)}-v{version}"
+    html_path = out_dir / f"{name}.html"
+    html_path.write_text(page, encoding="utf-8")
+    pdf_path = out_dir / f"{name}.pdf"
+    print_pdf(html_path, pdf_path)
+    entry["file"] = pdf_path.name
+    hist_path.write_text(json.dumps(history, ensure_ascii=False, indent=2), encoding="utf-8")
+    return pdf_path
+
+
+def approve_functional(root: Path, m: Doc) -> Path:
+    """The client approved the functional document: approved version and milestone unblocked."""
+    pdf = make_deliverable(root, "functional", approve=True)
+    version = re.search(r"v(\d+\.\d+)\.pdf$", pdf.name).group(1)
+    m.meta.update({"functional": "approved", "status": "queued", "reason": "", "awaiting": ""})
+    m.log(msg("log_functional_approved", v=version))
+    m.save()
+    return pdf
+
+
+def deliverables(root: Path) -> list:
+    """Latest version of each deliverable, for the panel."""
+    out = []
+    base = root / ".factory" / "artifacts" / "deliverables"
+    for hist in sorted(base.glob("*/history.json")) if base.is_dir() else []:
+        try:
+            history = json.loads(hist.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        if history and history[-1].get("file"):
+            last = history[-1]
+            out.append({"kind": hist.parent.name, "version": last["version"], "status": last["status"],
+                        "date": last["date"], "path": f"deliverables/{hist.parent.name}/{last['file']}"})
+    return out
+
+
+def cmd_deliverable(a) -> None:
+    root = project_root()
+    warnings = functional_warnings(root)
+    if a.check:
+        print("\n".join(warnings) if warnings else msg("w_none"))
+        return
+    if a.approve and a.milestone:
+        print(approve_functional(root, load(root, a.milestone)))
+    else:
+        print(make_deliverable(root, a.kind, a.approve, a.note or ""))
+    if warnings:
+        print(msg("w_header", n=len(warnings)))
+        print("\n".join(f"  {w}" for w in warnings))
+
+
 # --------------------------------------------------------------------------- conversation
 
 def _append_jsonl(path: Path, record: dict) -> None:
@@ -1301,8 +1824,13 @@ def _definition_actions(root, m, features, design, action) -> None:
             action("launch analyst", f.id, "specify")
         else:
             action("orchestrator", f.id, "approve_spec")
+    if defined or not m.free:
+        return
+    if functional_pending(m, own):
+        action("orchestrator", m.id, "functional_doc")
+        return
     ui = ui_features(m, own)
-    if defined or not ui or not m.free:
+    if not ui:
         return
     no_mockup = [f.id for f in ui if not artifacts(root, f)["mockup"].exists()]
     if design["tool"] == "claude_design" and design["level"] != "none":
@@ -1547,6 +2075,7 @@ def state_json(root: Path) -> dict:
             data["ready"] = is_ready(d, all_docs, root)
             data["missing"] = missing_specs(d, all_docs)
             data["missing_design"] = missing_design(d, all_docs, root)
+            data["functional_pending"] = functional_pending(d, all_docs)
         if d.type == "feature" and "spec" in arts:
             text = (art_base / arts["spec"]).read_text(encoding="utf-8")
             data["criteria"] = len(set(re.findall(r"AC-F\d+-\d+", text)))
@@ -1572,6 +2101,7 @@ def state_json(root: Path) -> dict:
         "max_attempts": max_attempts(root),
         "prs_url": _prs_url(root),
         "previews": previews(root),
+        "deliverables": deliverables(root),
         "preview_url": str(project(root)["preview_url"] or ""),
         "generated": now(),
     }
@@ -1585,7 +2115,8 @@ def apply_panel_action(root: Path, data: dict) -> str:
     awaiting = d["awaiting"]
     what_key = {"approve_spec": "w_approve_spec", "approve_design": "w_approve_design",
                 "approve_milestone": "w_approve_milestone",
-                "approve_milestone_design": "w_approve_milestone_design"}.get(awaiting)
+                "approve_milestone_design": "w_approve_milestone_design",
+                "approve_functional_doc": "w_approve_functional_doc"}.get(awaiting)
     what = msg(what_key) if what_key else awaiting
     bad = Error(msg("bad_action", action=action, id=ident, awaiting=awaiting or "-"))
 
@@ -1593,6 +2124,10 @@ def apply_panel_action(root: Path, data: dict) -> str:
         text = msg("dec_from_panel") + (f"\n\n{extra}" if extra else "")
         return record_decision(root, msg("dec_title", what=msg(title_key), id=d.id), d.id, text)
 
+    if action == "approve" and awaiting == "approve_functional_doc":
+        dec = decide(what_key)
+        pdf = approve_functional(root, d)
+        return msg("in_approve", id=d.id, what=what, dec=dec) + f" PDF: {pdf}"
     if action == "approve" and awaiting == "approve_milestone_design":
         dec = decide(what_key)
         approve_milestone_design(root, d)
@@ -1715,6 +2250,12 @@ def apply_panel_action(root: Path, data: dict) -> str:
                         f"{msg('dec_from_panel')}\n\n{text}")
         where = msg("backlog") if target == BACKLOG else target
         return msg("in_new_feature", id=new_id, milestone=where, text=text)
+    if action == "generate_functional":
+        pdf = make_deliverable(root, "functional", note=comment)
+        version = re.search(r"v(\d+\.\d+)\.pdf$", pdf.name).group(1)
+        warnings = functional_warnings(root)
+        return (msg("in_generated", v=version, path=pdf.relative_to(root))
+                + (msg("in_generated_warn", w="; ".join(warnings)) if warnings else ""))
     if action == "auto_build":
         value = "yes" if str(data.get("value")) in ("yes", "true", "1") else "no"
         pr = project(root)
@@ -1993,6 +2534,14 @@ def main(argv=None) -> int:
                        help="record the human's approval of a milestone's design (from the terminal)")
     s.add_argument("id", help="milestone ID")
     s.set_defaults(f=cmd_approve_design)
+
+    s = sub.add_parser("deliverable", help="generate a client deliverable as PDF (new draft version, or --approve)")
+    s.add_argument("kind", choices=["functional"])
+    s.add_argument("--note", help="what changed in this version")
+    s.add_argument("--approve", action="store_true", help="mark the latest version as approved by the client")
+    s.add_argument("--milestone", help="with --approve: the milestone whose definition the client approved")
+    s.add_argument("--check", action="store_true", help="only list what breaks the writing rules; no new version")
+    s.set_defaults(f=cmd_deliverable)
 
     s = sub.add_parser("tokens", help="generate tokens.css from tokens.json")
     s.add_argument("--src", help="source tokens.json (default: the project's kit)")

@@ -1,0 +1,10 @@
+{
+  "name": "Quilla",
+  "legal_name": "Quilla Estudio Digital",
+  "tagline": {"es": "Diseño y desarrollo de producto digital", "en": "Digital product design and development"},
+  "email": "hola@quilla-estudio.example",
+  "web": "quilla-estudio.example",
+  "city": "Madrid",
+  "accent": "#1F5F6B",
+  "ink": "#16202A"
+}

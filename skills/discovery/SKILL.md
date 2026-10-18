@@ -41,7 +41,7 @@ Para «una web para el taller de mi primo en Boadilla, con los servicios y un fo
 
 ## Al terminar
 
-1. Escribe `.factory/artifacts/vision.md` y `.factory/artifacts/roadmap.md` con las plantillas.
+1. Escribe `.factory/artifacts/vision.md` y `.factory/artifacts/roadmap.md` con las plantillas. La visión acaba en el documento funcional del cliente: escríbela siguiendo la skill `functional-writing` (títulos exactos, alcance con lo que queda fuera, glosario, datos que faltan como `[pendiente: …]`) y comprueba con `factory deliverable functional --check`.
 2. Crea los elementos:
    - Hitos: `factory new milestone --title "…" --goal "<al terminar se puede…>"`.
    - Funcionalidades de **cada** hito, con su descripción en lenguaje de negocio:

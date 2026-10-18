@@ -58,10 +58,20 @@ La segunda regla deja leer las instrucciones y las reglas del plugin (fuera de l
 4. **Cómo se diseña** (proyectos con interfaz): te pregunta el nivel (kit completo de agencia, solo directrices o sin diseño), dónde se diseña (lienzo de Claude Design o maquetas locales, si tiene el lienzo disponible), qué plugin de diseño usar (si hay alguno instalado, como `frontend-design`) y si ya tienes logo, colores o fotos. Con maquetas locales, el prototipador crea primero el kit y lo apruebas.
 5. **Aprobar el hito**: resumen de visión, roadmap y arquitectura, y el contenido del primer hito. Al aprobarlo empieza su definición.
 6. **Especificaciones**: el analista las escribe y apruebas cada una en el panel.
-7. **Diseño del hito** (si tiene pantallas): con Claude Design, el orquestador busca material real del cliente, te pide lo que falte y diseña las pantallas contigo en un lienzo de claude.ai (en el primer hito, 2-3 direcciones y variantes con y sin tus fotos). Puedes retocar a mano en el lienzo. Al aprobarlo, se baja a local: una maqueta por funcionalidad y el kit al día. Con maquetas locales, las hace el prototipador y las apruebas igual.
-8. **Comenzar construcción**: botón del hito en el panel (o automático). Se crea `release/M01-…` y el arquitecto diseña y crea las tareas. El desarrollador las hace una a una (tests primero) y abre PRs contra la release. El validador revisa cada PR. Tú fusionas.
-9. **Validación y lote**: con todas las tareas fusionadas, el validador comprueba los criterios en la release. Después te presenta el lote para aceptar cada funcionalidad.
-10. **Cierre**: PR de la release a `master`; la fusionas y el hito queda cerrado.
+7. **Documento funcional**: con todas aprobadas, el orquestador genera el PDF para el cliente (botón «Documento funcional» en la vista Producto). Se lo envías y registras su aprobación o sus cambios en el panel.
+8. **Diseño del hito** (si tiene pantallas): con Claude Design, el orquestador busca material real del cliente, te pide lo que falte y diseña las pantallas contigo en un lienzo de claude.ai (en el primer hito, 2-3 direcciones y variantes con y sin tus fotos). Puedes retocar a mano en el lienzo. Al aprobarlo, se baja a local: una maqueta por funcionalidad y el kit al día. Con maquetas locales, las hace el prototipador y las apruebas igual.
+9. **Comenzar construcción**: botón del hito en el panel (o automático). Se crea `release/M01-…` y el arquitecto diseña y crea las tareas. El desarrollador las hace una a una (tests primero) y abre PRs contra la release. El validador revisa cada PR. Tú fusionas.
+10. **Validación y lote**: con todas las tareas fusionadas, el validador comprueba los criterios en la release. Después te presenta el lote para aceptar cada funcionalidad.
+11. **Cierre**: PR de la release a `master`; la fusionas y el hito queda cerrado.
+
+## Entregables para el cliente
+
+Se generan en PDF con la identidad del estudio y el logo del cliente (`.factory/artifacts/design/assets/logo.*`) en portada, y se descargan desde la vista Producto. Cada versión queda guardada con su historial.
+
+- **Documento funcional** (`factory deliverable functional`, o el botón «Generar documento funcional» de la vista Producto): visión, roadmap completo, detalle de los hitos especificados, supuestos, lo pendiente del cliente y página de firma. Su estructura es fija; el texto sale de la visión y las especificaciones, que se escriben siguiendo la skill `functional-writing` y se comprueban con `--check`.
+- Documento de diseño y maqueta interactiva: pendientes (B05 y B06 del backlog).
+
+**Identidad del estudio**: por defecto, la provisional de `templates/deliverables/` (Quilla Estudio Digital). Para usar la tuya, crea `~/.factory/studio/studio.json` con los mismos campos (nombre, nombre completo, lema, correo, web, ciudad, color de acento y de texto) y, si quieres, `~/.factory/studio/logo.svg` o `logo.png`.
 
 ## Panel de control
 
