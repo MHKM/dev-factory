@@ -29,7 +29,8 @@ Decisiones y pruebas que esperan tu atención.
 | B06 | Entregable: maqueta interactiva (ZIP) | 2026-10-18 | Sin ti | Alta | Pendiente |
 | B13 | Página de ejemplo del kit de diseño «en acción» | Nota 5 | Sin ti | Baja | Pendiente |
 | B14 | Paralelizar paquetes de tareas con worktrees transparentes: estudio y propuesta | Nota 14 | Sin ti → decides tú | Media | Pendiente |
-| B07 | Conocimiento del stack web (skill para arquitecto, desarrollador y validador) | Modelo §13, nota 7 | Sin ti → revisas tú | Media | Pendiente |
+| B07 | Paquetes de stack, fijados al iniciar el proyecto (el web, el primero) | Modelo §13, nota 7, 2026-10-19 | Contigo (definir) → sin ti | Alta | Pendiente |
+| B15 | Desacoplar el núcleo del stack web | Revisión 2026-10-19 | Sin ti | Alta | Pendiente |
 | B08 | Retomar una sesión interrumpida | Corrección 5, nota 3 | Contigo (prueba real) | Alta | Pendiente |
 | B09 | Prueba real del flujo completo con Boadilla Motor, incluido el diseño por hito | Notas 28 y 30 | Contigo | Alta | Pendiente |
 | B10 | Fase de demo | Nota 16 | Contigo (definir) | Baja | Aparcado |
@@ -60,7 +61,15 @@ Tres entregables, cada uno ligado a una aprobación del cliente. Todos con la **
 
 **B14 · Paquetes en paralelo.** Estudiar si varios desarrolladores pueden trabajar a la vez con worktrees que el humano nunca ve (creados y borrados por la plataforma, fuera de la carpeta del proyecto), cómo afecta a la guardia, a la vista previa y a los conflictos entre ramas. Sale un documento con la propuesta y sus riesgos; **la implementación espera a tu decisión**.
 
-**B07 · Stack web.** Skill con lo que hoy decide el arquitecto cada vez para una web estática: estructura, comandos de prueba (incluidas pruebas en navegador sin interfaz), accesibilidad, rendimiento, publicación en GitHub Pages y uso de los tokens. *Hecho cuando* los agentes la cargan en proyectos `web`. La revisas antes de darla por buena.
+**B07 · Paquetes de stack.** El stack se fija al iniciar el proyecto (campo `stack` en el perfil) y cada stack es un paquete (`stacks/<nombre>/`) que aporta lo que hoy improvisa el arquitecto: estructura y comandos del perfil, convenciones, cómo se prueba (incluidas pruebas de interfaz), cómo se aplican los tokens de diseño, si hay vista previa y de qué tipo, y cómo se publica. Sin stack fijado, el arquitecto lo propone como hoy. Primero hay que definir contigo el formato y qué stacks; después, el paquete web sin ti. *Hecho cuando* un proyecto con `stack=web-static` no necesita que el arquitecto decida nada de eso y el panel solo ofrece la vista previa si el stack la tiene.
+
+**B15 · Desacoplar el núcleo del stack web** (revisión del 2026-10-19). El núcleo (estado, carriles, enrutado, ramas y PRs, guardia, TDD con los comandos del perfil, analista, validador, documento funcional) ya es independiente del stack. Lo que está atado a la web sin necesidad:
+1. **`interface: web|none|mixed`** mezcla «tiene pantallas» con «es web». Pasar a `ui|none|mixed` (aceptando `web` en proyectos antiguos); el tipo de interfaz (web, app móvil, escritorio, Salesforce…) lo dice el stack.
+2. **Vista previa**: supone ficheros estáticos con `index.html` (`preview_root`, `preview_url`). Debe declararla el stack (`static`, `url` o ninguna) y el panel ocultar la pestaña si no hay.
+3. **Tokens de diseño en código**: el arquitecto crea siempre la tarea «Implementar los tokens» pensando en CSS y el validador comprueba «sin colores escritos a mano». Debe ser «como indique el stack» (CSS, tema de la app, SLDS…).
+4. **Textos con la web por defecto**: GitHub Pages en la pregunta del repositorio, «recomendado para webs» en el nivel de diseño, ejemplos del descubrimiento solo web, `frontend-design` recomendado para cualquier interfaz. Redactarlos en neutro o moverlos al paquete web.
+5. **Se queda como está, a propósito**: las maquetas y el lienzo son HTML porque son el medio para enseñar y aprobar pantallas, sea cual sea el stack final (son desechables); el kit de diseño en `tokens.json` es un formato neutro (W3C).
+*Hecho cuando* un proyecto de prueba con una interfaz no web y otro sin interfaz recorren el flujo sin textos ni pasos de web.
 
 **B08 · Retomar una sesión.** Cerrar la sesión con una decisión pendiente y con un agente trabajando, volver a abrirla y comprobar qué ve el orquestador y qué hace. Hace falta una sesión real; sin ti solo se puede preparar el guion de prueba.
 
