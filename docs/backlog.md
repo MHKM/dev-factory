@@ -29,12 +29,18 @@ Decisiones y pruebas que esperan tu atención.
 | B06 | Entregable: maqueta interactiva (ZIP) | 2026-10-18 | Sin ti | Alta | Pendiente |
 | B13 | Página de ejemplo del kit de diseño «en acción» | Nota 5 | Sin ti | Baja | Pendiente |
 | B14 | Paralelizar paquetes de tareas con worktrees transparentes: estudio y propuesta | Nota 14 | Sin ti → decides tú | Media | Pendiente |
-| B07 | Paquetes de stack, fijados al iniciar el proyecto (el web, el primero) | Modelo §13, nota 7, 2026-10-19 | Contigo (definir) → sin ti | Alta | Pendiente |
+| B07 | Definir la interfaz de stack (`docs/stack-interface.md`) | Modelo §13, nota 7, 2026-10-19 | Contigo | Alta | Pendiente |
+| B16 | La plataforma lee el stack: `factory init --stack`, `factory stack list/show`, perfil con `stack` | B07 | Sin ti | Alta | Pendiente (tras B07) |
+| B17 | Los agentes reciben las instrucciones del stack por rol | B07 | Sin ti | Alta | Pendiente (tras B16) |
+| B18 | El panel y el enrutado obedecen al stack (vista previa, diseño, tokens) | B07, B15 | Sin ti | Media | Pendiente (tras B16) |
+| B19 | Primer paquete: `web-static` | B07 | Sin ti → revisas tú | Alta | Pendiente (tras B16) |
+| B20 | Paquete sin interfaz para comprobar el núcleo | B07 | Sin ti | Media | Pendiente (tras B16) |
+| B21 | Despliegue según el stack, con aprobación humana | Nota 17, B07 | Contigo (definir) → sin ti | Media | Aparcado hasta B19 |
 | B15 | Desacoplar el núcleo del stack web | Revisión 2026-10-19 | Sin ti | Alta | Pendiente |
 | B08 | Retomar una sesión interrumpida | Corrección 5, nota 3 | Contigo (prueba real) | Alta | Pendiente |
 | B09 | Prueba real del flujo completo con Boadilla Motor, incluido el diseño por hito | Notas 28 y 30 | Contigo | Alta | Pendiente |
 | B10 | Fase de demo | Nota 16 | Contigo (definir) | Baja | Aparcado |
-| B11 | Fase de entrega a producción | Nota 17 | Contigo (definir) | Baja | Aparcado |
+| B11 | Fase de entrega a producción | Nota 17 | Contigo (definir) | Baja | Incluida en B21 |
 | B12 | Backend de estado en GitHub Projects | Modelo §13 | Contigo (decidir si merece la pena) | Baja | Aparcado |
 
 ## Detalle
@@ -61,7 +67,23 @@ Tres entregables, cada uno ligado a una aprobación del cliente. Todos con la **
 
 **B14 · Paquetes en paralelo.** Estudiar si varios desarrolladores pueden trabajar a la vez con worktrees que el humano nunca ve (creados y borrados por la plataforma, fuera de la carpeta del proyecto), cómo afecta a la guardia, a la vista previa y a los conflictos entre ramas. Sale un documento con la propuesta y sus riesgos; **la implementación espera a tu decisión**.
 
-**B07 · Paquetes de stack.** El stack se fija al iniciar el proyecto (campo `stack` en el perfil) y cada stack es un paquete (`stacks/<nombre>/`) que aporta lo que hoy improvisa el arquitecto: estructura y comandos del perfil, convenciones, cómo se prueba (incluidas pruebas de interfaz), cómo se aplican los tokens de diseño, si hay vista previa y de qué tipo, y cómo se publica. Sin stack fijado, el arquitecto lo propone como hoy. Primero hay que definir contigo el formato y qué stacks; después, el paquete web sin ti. *Hecho cuando* un proyecto con `stack=web-static` no necesita que el arquitecto decida nada de eso y el panel solo ofrece la vista previa si el stack la tiene.
+### Conexión con el stack
+
+El contrato está en `docs/stack-interface.md`: qué declara un stack (identidad y requisitos, interfaz, diseño, estructura y comandos, pruebas, vista previa, entornos y despliegue, entregables e instrucciones por rol) y cómo lo lee la plataforma.
+
+**B07 · Definir la interfaz de stack.** Revisar contigo `docs/stack-interface.md` y cerrar sus preguntas: formato, primeros stacks, en qué momento se elige, dónde viven los stacks propios y hasta dónde llega el despliegue automático. *Hecho cuando* el documento no tiene preguntas abiertas.
+
+**B16 · La plataforma lee el stack.** Carpeta `stacks/` (y `~/.factory/stacks/`), `factory stack list` y `factory stack show`, `factory init --stack <id>` que verifica los requisitos de la máquina y fija `stack` y `stack_version` en el perfil, comandos del perfil sembrados desde el stack, y el orquestador preguntando el stack en el arranque o proponiéndolo en el descubrimiento. Sin stack, todo como hoy. *Hecho cuando* está probado en B01.
+
+**B17 · Instrucciones del stack por rol.** Cada agente lee `stacks/<id>/agents/<rol>.md` al empezar, como hoy `shared/agent-rules.md`; el arquitecto parte de la arquitectura de referencia y las transversales tipo del stack en vez de improvisarlas. *Hecho cuando* un proyecto con stack lleva sus instrucciones a los seis roles.
+
+**B18 · Panel y enrutado según el stack.** La pestaña de vista previa sale solo si el stack la declara (estática o servidor); el paso de diseño, los tamaños de pantalla, la tarea de tokens y la comprobación del validador salen del stack. Incluye los puntos 1-3 de B15.
+
+**B19 · Paquete `web-static`.** El primero: web estática como Boadilla Motor (estructura, comandos, pruebas en navegador sin interfaz, accesibilidad, tokens a CSS, vista previa estática, publicación en GitHub Pages, plugin `frontend-design`). Lo revisas antes de darlo por bueno.
+
+**B20 · Paquete sin interfaz.** Uno mínimo (p. ej. una librería o un proceso en Python) para comprobar que el flujo completo funciona sin pantallas ni pasos de web.
+
+**B21 · Despliegue según el stack.** Entornos, cómo se despliega a cada uno, credenciales siempre del humano, qué aprobación exige cada despliegue y cómo se revierte. Sustituye a la nota 17 y cambia la regla «ningún agente despliega» por la que se decida. Se define contigo tras B19.
 
 **B15 · Desacoplar el núcleo del stack web** (revisión del 2026-10-19). El núcleo (estado, carriles, enrutado, ramas y PRs, guardia, TDD con los comandos del perfil, analista, validador, documento funcional) ya es independiente del stack. Lo que está atado a la web sin necesidad:
 1. **`interface: web|none|mixed`** mezcla «tiene pantallas» con «es web». Pasar a `ui|none|mixed` (aceptando `web` en proyectos antiguos); el tipo de interfaz (web, app móvil, escritorio, Salesforce…) lo dice el stack.
