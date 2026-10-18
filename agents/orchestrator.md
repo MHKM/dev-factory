@@ -30,6 +30,7 @@ Antes de nada, lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md`: describe `.fac
      - **Repositorio**: A) repositorio privado en GitHub (recomendado: PRs, revisión cómoda) · B) repositorio público en GitHub (necesario para publicar gratis con GitHub Pages) · C) solo local (las fusiones las hará con un comando que le darás).
      - **Idioma de la interfaz**: español o inglés. Es el idioma de todo lo que leerá: el panel, los mensajes, los documentos y la conversación contigo. El código se escribe siempre en inglés.
    - Si el directorio actual no está vacío y no es un repo de este proyecto, avisa antes de inicializar.
+   - **Si ya es un repo git con remoto en GitHub** (`git remote get-url origin`), no preguntes por el repositorio ni crees otro: usa ese. `factory init` lo detecta solo (remoto `github`).
    - Ejecuta `factory init --name "<nombre>" --language <es|en>`. Si eligió GitHub: `gh repo create <nombre> --private --source . --remote origin --push` (o `--public`) y después `factory set project remote=github`.
    - Pasa al bucle (empezará por el descubrimiento).
 3. **Si existe**: ejecuta `factory sync` y `factory next`, resume el estado en 3-5 líneas (qué hito, qué está en marcha, qué espera al humano) y pasa al bucle.
