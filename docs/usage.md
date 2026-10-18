@@ -55,12 +55,13 @@ La segunda regla deja leer las instrucciones y las reglas del plugin (fuera de l
 1. **Inicio**: te pregunta el nombre del proyecto, si quieres repositorio en GitHub (privado o público) o solo local, y el idioma de la interfaz (español o inglés: panel, mensajes, documentos y conversación; el código va siempre en inglés). Crea `.factory/`, hace el commit inicial y abre el panel.
 2. **Descubrimiento**: varias rondas cortas sobre servicios, precios, cómo quiere recibir las peticiones, fotos y logo, horario y ubicación. Propone ideas (mapa, botón de WhatsApp, aviso de privacidad…). Al final escribe la visión y el roadmap, y crea los hitos y funcionalidades.
 3. **Arquitectura base**: el arquitecto te propone el stack con 2 o 3 opciones (por ejemplo, una web estática con un servicio de formularios frente a algo con backend). Tú eliges.
-4. **Diseño** (proyectos con interfaz): te pregunta qué nivel quieres (kit completo de agencia, solo directrices o sin diseño) y si ya tienes logo o colores. El prototipador crea el kit: guía de marca, paleta con HEX/RGB/HSL y equivalencias Pantone y CMYK, tipografía, espaciado, componentes y tokens. Lo revisas en el panel (botón «Kit de diseño») y lo apruebas o pides cambios.
-5. **Aprobar el hito**: resumen de visión, roadmap y arquitectura, y el contenido del primer hito. Al aprobarlo se crea `release/M01-…`.
-6. **Especificación y maqueta**: el analista escribe las especificaciones y el prototipador las maquetas HTML. Te las presenta una a una; puedes abrir la maqueta desde el panel.
-7. **Construcción**: el arquitecto diseña y crea las tareas. El desarrollador las hace una a una (tests primero) y abre PRs contra la release. El validador revisa cada PR. Tú fusionas.
-8. **Validación y lote**: con todas las tareas fusionadas, el validador comprueba los criterios en la release. Después te presenta el lote para aceptar cada funcionalidad.
-9. **Cierre**: PR de la release a `master`; la fusionas y el hito queda cerrado.
+4. **Cómo se diseña** (proyectos con interfaz): te pregunta el nivel (kit completo de agencia, solo directrices o sin diseño), dónde se diseña (lienzo de Claude Design o maquetas locales, si tiene el lienzo disponible), qué plugin de diseño usar (si hay alguno instalado, como `frontend-design`) y si ya tienes logo, colores o fotos. Con maquetas locales, el prototipador crea primero el kit y lo apruebas.
+5. **Aprobar el hito**: resumen de visión, roadmap y arquitectura, y el contenido del primer hito. Al aprobarlo empieza su definición.
+6. **Especificaciones**: el analista las escribe y apruebas cada una en el panel.
+7. **Diseño del hito** (si tiene pantallas): con Claude Design, el orquestador busca material real del cliente, te pide lo que falte y diseña las pantallas contigo en un lienzo de claude.ai (en el primer hito, 2-3 direcciones y variantes con y sin tus fotos). Puedes retocar a mano en el lienzo. Al aprobarlo, se baja a local: una maqueta por funcionalidad y el kit al día. Con maquetas locales, las hace el prototipador y las apruebas igual.
+8. **Comenzar construcción**: botón del hito en el panel (o automático). Se crea `release/M01-…` y el arquitecto diseña y crea las tareas. El desarrollador las hace una a una (tests primero) y abre PRs contra la release. El validador revisa cada PR. Tú fusionas.
+9. **Validación y lote**: con todas las tareas fusionadas, el validador comprueba los criterios en la release. Después te presenta el lote para aceptar cada funcionalidad.
+10. **Cierre**: PR de la release a `master`; la fusionas y el hito queda cerrado.
 
 ## Panel de control
 

@@ -23,6 +23,7 @@ Primero lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md` y cúmplelo.
 1. **Preparar**
    - Ejecuta `factory set T### agent=developer` y `factory phase T### development --status in_progress` en cada tarea (si ya estaba en `development`, basta con `factory status T### in_progress`).
    - Lee `.factory/project.md` (comandos y convenciones), cada tarea (`factory show`), el `design.md` y el `spec.md` de su funcionalidad, y las decisiones.
+   - Si la tarea tiene interfaz, mira su maqueta (`.factory/artifacts/F###/mockup/`): es el diseño aprobado y la pantalla tiene que corresponderse. Si `factory show design` tiene `plugin` distinto de `none`, cárgalo con la skill antes de escribir la interfaz.
 2. **Rama**
    - La base es la release del hito (campo `branch` del hito), o la rama principal (`main_branch`) si es hotfix.
    - Antes de cambiar de rama, comprueba que no hay cambios sin commitear (`git status`).

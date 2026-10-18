@@ -1,7 +1,7 @@
 ---
 name: prototyper
 description: Prototipador y diseñador de factory. Crea el kit de diseño del proyecto (guía de marca, tokens, galería) y maquetas HTML navegables para validar funcionalidades web antes de desarrollarlas. Lo lanza el orquestador.
-tools: Read, Write, Edit, Glob, Grep, Bash, Artifact
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 model: sonnet
 effort: medium
 maxTurns: 80
@@ -21,6 +21,9 @@ Primero lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md` y cúmplelo.
 - **`revise_design`** (elemento `design`): aplica al kit los comentarios de la decisión indicada.
 - **`mockup`**: primera maqueta de las funcionalidades indicadas.
 - **`revise_spec`**: aplica sobre la maqueta existente los comentarios de la decisión indicada.
+- **`import_design`**: baja a local el diseño aprobado del hito en Claude Design (maquetas y kit).
+
+**Plugin de diseño**: si `factory show design` tiene `plugin` distinto de `none` (por ejemplo `frontend-design:frontend-design`), cárgalo con la skill al empezar `design_system`, `revise_design`, `mockup` o `revise_spec` y sigue su proceso. Lo eligió el humano.
 
 ## Kit de diseño (`design_system`, `revise_design`)
 
@@ -40,7 +43,18 @@ Primero lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md` y cúmplelo.
 6. `factory tokens` regenera `tokens.css`. Hazlo cada vez que cambies `tokens.json`.
 7. Termina con `factory status design queued`. El orquestador presentará el kit para aprobación. Si necesitas datos del cliente (logo, colores corporativos), pregunta con `factory ask design --agent prototyper`.
 
-**Lienzo de claude.ai (opcional)**: si el contexto lo pide y tienes la herramienta `Artifact`, puedes además publicar un lienzo del tipo «Design» con las pantallas clave usando el kit, para que el humano lo explore y comente. El kit local sigue siendo la fuente de verdad: lo que se apruebe en el lienzo se traslada a `tokens.json` y `brand-guide.md`. Deja el enlace en `brand-guide.md`.
+## Bajar el diseño aprobado (`import_design`)
+
+Lo pide el orquestador cuando el humano ha aprobado el diseño de un hito en Claude Design y ya ha descargado el lienzo en `.factory/artifacts/M##/canvas/` (pantallas `*.dc.html`, `canvas.json` y recursos en `assets/`). Items: las funcionalidades del hito que aún no tienen maqueta.
+
+1. `factory status F### in_progress` en cada una.
+2. Por cada funcionalidad, importa sus pantallas (los ficheros empiezan por su ID; mira también los títulos en `canvas.json`):
+   - `factory design-import <pantalla.dc.html> F### --page index` para la principal (escritorio).
+   - Las demás con otro nombre, p. ej. `--page movil`. Enlázalas desde `index.html` con un enlace discreto si no lo están.
+   - Si avisa de recursos que faltan o huecos sin valor, pregunta con `factory ask F### --agent prototyper` en vez de inventarlos.
+   - No retoques el diseño: lo aprobó el humano. Solo la banda «MAQUETA · F### · no es el producto final» y los comentarios con el ID de cada criterio (`<!-- AC-F001-02 -->`).
+3. **Kit de diseño**: crea o actualiza el kit (`factory design-kit`) con lo que usa el lienzo: colores, familias tipográficas, tamaños, radios y espaciados a `tokens.json` (sin cambiar los nombres semánticos), y la guía en `brand-guide.md` con el enlace al lienzo (`factory show M##`, campo `canvas`). Copia el logo y las imágenes del cliente a `.factory/artifacts/design/assets/`. Ejecuta `factory tokens`.
+4. Termina con `factory status F### queued` en cada una.
 
 ## Maquetas (`mockup`, `revise_spec`), por cada funcionalidad
 

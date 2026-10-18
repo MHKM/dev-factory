@@ -15,7 +15,7 @@ Los identificadores de la plataforma (comandos, campos, fases, situaciones, modo
     state/              ← un .md por hito (M01), funcionalidad (F001) y tarea (T001)
     artifacts/          ← vision.md, roadmap.md, architecture.md y una carpeta por elemento
       design/           ← kit de diseño: brand-guide.md, tokens.json, tokens.css, index.html, assets/
-      M01/  design.md, batch.md
+      M01/  design.md, batch.md, canvas/ (lienzo de Claude Design descargado)
       F001/ spec.md, business-rules.md, mockup/index.html, design.md, validation.md
       T001/ review.md
     decisions/          ← D001-….md: registro de decisiones

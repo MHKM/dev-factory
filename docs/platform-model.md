@@ -118,7 +118,7 @@ Tarea:          Pendiente → Desarrollo → ✋ En revisión → Hecha
 Un ✋ se representa con la situación *Esperando humano* (con su motivo) sobre el elemento, hasta que el humano decide y el orquestador aplica el cambio de fase.
 
 - **Funcionalidad**
-  - *Especificada* ✋: el humano aprueba la especificación y la maqueta o las reglas de negocio. Si la rechaza, vuelve a *Definida* con comentarios.
+  - *Especificada* ✋: el humano aprueba la especificación o las reglas de negocio. Si la rechaza, vuelve a *Definida* con comentarios. Las pantallas se diseñan después, por hito, cuando todas sus especificaciones están aprobadas (✋ aprobación del diseño del hito).
   - *En construcción* incluye el diseño técnico (con su consulta previa, que se expresa con la situación *Esperando humano*) y las tareas.
   - *Validada*: el validador ha comprobado los criterios; espera al lote.
   - *Aceptada* ✋: aceptada en el lote del hito.
@@ -205,8 +205,9 @@ Tareas necesarias que no aportan funcionalidad de negocio (repositorio, entornos
 
 ### Maqueta y reglas de negocio
 - **Desarrollos web**: maqueta HTML navegable para dar el ok antes de desarrollar.
-  - Es **desechable**: valida el *qué*, no es base de código.
-  - Los comentarios sobre la maqueta vuelven al analista.
+  - Se hace por hito, después de aprobar las especificaciones: en un lienzo de Claude Design que el orquestador trabaja con el humano y que luego se baja a local (`factory design-import`), o como maquetas locales del prototipador.
+  - Es **desechable**: valida el *qué* y el aspecto, no es base de código.
+  - Los comentarios sobre la maqueta vuelven a quien la hizo; si cambian el *qué*, también al analista.
 - **Desarrollos sin interfaz** (backend Apex, triggers, integraciones): funcionalidades de negocio en lenguaje humano, agrupadas por área, con formato **"cuando ocurre X, el sistema hace Y"**.
 - **Proyectos mixtos**: ambas cosas, colgando de la misma funcionalidad.
 
@@ -342,8 +343,9 @@ Se cambian en el frontmatter de cada agente.
 | Presupuesto: `maxTurns` por agente | Es el límite que ofrece Claude Code; el coste en dinero no se controla todavía |
 | El enrutado lo calcula `factory next`, no el criterio del orquestador | Comportamiento predecible y depurable; el orquestador se centra en hablar con el humano |
 | El stack se decide siempre con consulta previa en la arquitectura base | Es la decisión más difícil de revertir |
-| Fase de diseño tras la arquitectura base, con nivel elegido por el humano (completo, directrices o ninguno); la hace el prototipador | Validar el aspecto antes de construir sin añadir un agente nuevo |
-| Kit de diseño local con `tokens.json` (W3C Design Tokens) como fuente única; el lienzo de claude.ai es opcional | Funciona siempre, se ve en el panel y se convierte en código; el lienzo solo está disponible en sesiones interactivas |
+| El humano elige nivel de diseño, dónde se diseña (Claude Design o maquetas locales) y plugin de diseño (si hay) | Validar el aspecto antes de construir sin añadir un agente nuevo; aprovechar lo que tenga instalado |
+| Diseño por hito, después de lo funcional; con Claude Design lo hace el orquestador mano a mano | Se diseña sobre especificaciones aprobadas; el lienzo solo está en la sesión interactiva y se itera en conversación |
+| Kit de diseño local con `tokens.json` (W3C Design Tokens) como fuente única | Funciona siempre, se ve en el panel y se convierte en código; lo aprobado en el lienzo se baja a él |
 | Pantone y CMYK como equivalencias aproximadas | Son propietarios y dependen del soporte; se confirman con guía física |
 | El kit de diseño es un elemento propio (`design`), separado del proyecto | La arquitectura base y el diseño pueden avanzar en paralelo sin pisarse el estado (demo, nota 4) |
 | La actividad de los agentes la registra un hook (inicio, fin, última acción), no los propios agentes | El panel siempre ve quién trabaja y en qué, aunque el agente no lo declare (demo, notas 1, 6 y 15) |

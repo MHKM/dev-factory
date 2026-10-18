@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import html
 import json
 import mimetypes
 import re
@@ -46,6 +47,7 @@ STATUSES = ["queued", "in_progress", "waiting_human", "blocked"]
 KINDS = ["technical", "cross_cutting", "fix", "hotfix"]
 PRIORITIES = ["must", "should", "later"]
 DESIGN_LEVELS = ["none", "guidelines", "full"]
+DESIGN_TOOLS = ["claude_design", "local"]  # canvas on claude.ai, or HTML mockups by the prototyper
 PREFIX_BY_TYPE = {"milestone": "M", "feature": "F", "task": "T"}
 WIDTH = {"M": 2, "F": 3, "T": 3, "D": 3}
 STALE_SECONDS = 300
@@ -53,14 +55,14 @@ BACKLOG = "-"  # milestone value of features parked for "later"
 
 FIELDS = {
     "milestone": ["id", "type", "title", "order", "phase", "status", "reason", "goal", "branch",
-                  "planned", "closing", "pr", "created", "updated"],
+                  "planned", "closing", "pr", "design", "canvas", "created", "updated"],
     "feature": ["id", "type", "title", "milestone", "phase", "status", "reason", "priority",
                 "version", "depends_on", "needs_mockup", "validation", "created", "updated"],
     "task": ["id", "type", "title", "kind", "parent", "milestone", "package", "phase", "status",
              "reason", "agent", "attempts", "depends_on", "branch", "pr", "review", "created",
              "updated"],
-    "design": ["id", "type", "title", "level", "phase", "status", "reason", "created",
-               "updated"],
+    "design": ["id", "type", "title", "level", "tool", "plugin", "phase", "status", "reason",
+               "created", "updated"],
 }
 
 SEC_DESCRIPTION = "Description"
@@ -144,6 +146,15 @@ MESSAGES = {
     "w_approve_spec": ("Aprobación de la especificación", "Spec approval"),
     "w_approve_design": ("Aprobación del kit de diseño", "Design kit approval"),
     "w_approve_milestone": ("Aprobación del hito", "Milestone approval"),
+    "w_approve_milestone_design": ("Aprobación del diseño del hito", "Milestone design approval"),
+    "log_design_approved": ("Diseño del hito aprobado", "Milestone design approved"),
+    "not_dc": ("No es una mesa de trabajo de Claude Design (falta <x-dc>)",
+               "Not a Claude Design artboard (no <x-dc>)"),
+    "dc_unresolved": ("Huecos sin valor por defecto: {holes}", "Holes without a default value: {holes}"),
+    "dc_missing_assets": ("Faltan recursos del lienzo en {dir}: {ids}. Descárgalos y vuelve a importar.",
+                          "Canvas assets missing in {dir}: {ids}. Download them and import again."),
+    "not_ready_design": ("{id} aún no está listo para construir: falta el diseño aprobado de {missing}",
+                         "{id} is not ready to build yet: {missing} still need an approved design"),
     "w_changes": ("Cambios pedidos", "Changes requested"),
     "w_postpone": ("Aplazamiento", "Postponement"),
     "w_discard": ("Descarte", "Discard"),
@@ -769,10 +780,27 @@ def missing_specs(m: Doc, docs: list) -> list:
             and f["phase"] == "defined"]
 
 
-def is_ready(m: Doc, docs: list) -> bool:
-    """Ready to build when no feature of the milestone is waiting for its spec approval.
-    A milestone with no features (e.g. foundations only) is ready as well."""
-    return not missing_specs(m, docs)
+def ui_features(m: Doc, docs: list) -> list:
+    """Live features of the milestone that have screens (they go through the design step)."""
+    return [f for f in docs if f.type == "feature" and f["milestone"] == m.id
+            and f["needs_mockup"] == "yes" and f["phase"] not in ("postponed", "discarded")]
+
+
+def missing_design(m: Doc, docs: list, root: Path) -> list:
+    """Features with screens still without an approved design (approved milestone design plus
+    the mockup imported or drawn for each one)."""
+    ui = ui_features(m, docs)
+    if not ui:
+        return []
+    if m["design"] != "approved":
+        return [f.id for f in ui]
+    return [f.id for f in ui if not artifacts(root, f)["mockup"].exists()]
+
+
+def is_ready(m: Doc, docs: list, root: Path) -> bool:
+    """Ready to build when every spec of the milestone is approved and, if it has screens, its
+    design is approved and imported. A milestone with no features is ready as well."""
+    return not missing_specs(m, docs) and not missing_design(m, docs, root)
 
 
 def advance_milestones(root: Path) -> list:
@@ -781,7 +809,7 @@ def advance_milestones(root: Path) -> list:
     docs = load_all(root)
     if str(project(root)["auto_build"]) == "yes":
         for m in milestones_sorted(docs):
-            if m["phase"] == "defining" and is_ready(m, docs):
+            if m["phase"] == "defining" and is_ready(m, docs, root):
                 _apply_phase(m, "queued", None, None)
                 m.log(msg("log_queued"))
                 m.save()
@@ -907,8 +935,11 @@ def start_build(root: Path, ident: str) -> list:
     if m.type != "milestone" or m["phase"] not in ("proposed", "defining"):
         raise Error(msg("bad_milestone_phase", id=m.id, phase=m["phase"]))
     missing = missing_specs(m, docs)
-    if missing or not is_ready(m, docs):
-        raise Error(msg("not_ready", id=m.id, missing=", ".join(missing) or "-"))
+    if missing:
+        raise Error(msg("not_ready", id=m.id, missing=", ".join(missing)))
+    design = missing_design(m, docs, root)
+    if design:
+        raise Error(msg("not_ready_design", id=m.id, missing=", ".join(design)))
     _apply_phase(m, "queued", None, None)
     m.log(msg("log_queued"))
     m.save()
@@ -978,6 +1009,27 @@ def cmd_remove(a) -> None:
     root = project_root()
     remove_milestone(root, a.id)
     print(f"{a.id.upper()} ✕")
+
+
+def approve_milestone_design(root: Path, m: Doc) -> None:
+    """The human approved the screens of a milestone. The first approved design also fixes the
+    project's visual identity (design kit)."""
+    m.meta.update({"design": "approved", "status": "queued", "reason": "", "awaiting": ""})
+    m.log(msg("log_design_approved"))
+    m.save()
+    design = design_doc(root)
+    if design["phase"] != "approved" and design["level"] != "none":
+        _apply_phase(design, "approved", None, None)
+        design.save()
+
+
+def cmd_approve_design(a) -> None:
+    root = project_root()
+    m = load(root, a.id)
+    if m.type != "milestone":
+        raise Error(msg("not_found", id=a.id))
+    approve_milestone_design(root, m)
+    print(f"{m.id}: design approved")
 
 
 def cmd_start_definition(a) -> None:
@@ -1066,6 +1118,69 @@ def cmd_design_kit(a) -> None:
     print(target)
 
 
+def dc_to_html(src: str) -> tuple:
+    """Turn a Claude Design artboard (.dc.html) into a standalone page: holes filled with the
+    tweak defaults of data-props, <helmet> moved to <head>, the canvas runtime dropped.
+    Returns (html, unresolved holes, referenced asset ids)."""
+    props = {}
+    m = re.search(r"data-props='([^']*)'", src)
+    if m:
+        raw = json.loads(html.unescape(m.group(1)))
+        props = {k: v.get("default") for k, v in raw.items() if isinstance(v, dict) and "default" in v}
+    helmet = re.search(r"<helmet>(.*?)</helmet>", src, re.S)
+    body_m = re.search(r"<x-dc>(.*?)</x-dc>", src, re.S)
+    if not body_m:
+        raise Error(msg("not_dc"))
+    body = re.sub(r"<helmet>.*?</helmet>", "", body_m.group(1), flags=re.S)
+    unresolved = set()
+
+    def hole(mm):
+        key = mm.group(1).strip()
+        if key in props:
+            return str(props[key])
+        unresolved.add(key)
+        return mm.group(0)
+
+    body = re.sub(r"\{\{\s*([\w.$]+)\s*\}\}", hole, body)
+    title = re.search(r"<title>(.*?)</title>", src, re.S)
+    lang = re.search(r'<html lang="([^"]+)"', src)
+    page = (f'<!doctype html>\n<html lang="{lang.group(1) if lang else LANG}">\n<head>\n'
+            f'<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+            f'<title>{title.group(1) if title else "Mockup"}</title>\n'
+            f'{helmet.group(1).strip() if helmet else ""}\n</head>\n<body>\n{body.strip()}\n</body>\n</html>\n')
+    assets = sorted(set(re.findall(r"/_blob/([0-9a-f]{32})", page)))
+    return page, sorted(unresolved), assets
+
+
+def cmd_design_import(a) -> None:
+    """Import one artboard of an approved canvas as a page of a feature's mockup."""
+    root = project_root()
+    f = load(root, a.feature)
+    src = Path(a.board)
+    if not src.exists():
+        raise Error(msg("no_file", path=src))
+    page, unresolved, assets = dc_to_html(src.read_text(encoding="utf-8"))
+    out_dir = artifacts(root, f)["mockup"].parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+    asset_dir = Path(a.assets) if a.assets else src.parent / "assets"
+    missing = []
+    for ident in assets:
+        found = sorted(asset_dir.glob(f"{ident}*")) if asset_dir.is_dir() else []
+        if not found:
+            missing.append(ident)
+            continue
+        (out_dir / "assets").mkdir(exist_ok=True)
+        shutil.copyfile(found[0], out_dir / "assets" / found[0].name)
+        page = page.replace(f"/_blob/{ident}", f"assets/{found[0].name}")
+    out = out_dir / f"{a.page}.html"
+    out.write_text(page, encoding="utf-8")
+    print(out)
+    if unresolved:
+        print(msg("dc_unresolved", holes=", ".join(unresolved)))
+    if missing:
+        print(msg("dc_missing_assets", ids=", ".join(missing), dir=asset_dir))
+
+
 # --------------------------------------------------------------------------- conversation
 
 def _append_jsonl(path: Path, record: dict) -> None:
@@ -1134,17 +1249,21 @@ def compute_next(root: Path):
         if p["architecture"] != "done" and p.free:
             action("launch architect", "project", "base")
         needs_design = p["interface"] in ("web", "mixed")
+        canvas = design["tool"] == "claude_design"
         if needs_design and design.free and design["phase"] != "approved":
-            if not design["level"]:
+            if not design["level"] or not design["tool"]:
                 action("orchestrator", "design", "choose_design")
-            elif design["level"] != "none":
+            elif design["level"] != "none" and not canvas:
                 kit = root / ".factory" / "artifacts" / "design"
                 if (kit / "tokens.css").exists() and (kit / "brand-guide.md").exists():
                     action("orchestrator", "design", "approve_design")
                 else:
                     action("launch prototyper", "design", "design_system")
-        design_ready = (not needs_design or design["level"] == "none"
-                        or design["phase"] == "approved")
+        # With the claude.ai canvas the identity comes out of the first milestone's design,
+        # so milestones do not wait for a kit.
+        design_ready = (not needs_design or design["phase"] == "approved"
+                        or (design["level"] and design["tool"]
+                            and (design["level"] == "none" or canvas)))
 
         if p["architecture"] == "done" and design_ready:
             ordered = milestones_sorted(milestones)
@@ -1156,7 +1275,7 @@ def compute_next(root: Path):
             # Definition lane: every milestone being defined, in parallel.
             for m in ordered:
                 if m["phase"] == "defining":
-                    _definition_actions(root, m, features, action)
+                    _definition_actions(root, m, features, design, action)
             # Construction lane: the one milestone being built.
             building = next((m for m in ordered if is_building(m)), None)
             if building:
@@ -1170,18 +1289,35 @@ def compute_next(root: Path):
     return human, in_progress, actions
 
 
-def _definition_actions(root, m, features, action) -> None:
-    """Functional definition (spec, mockup, approval); technical design waits for construction."""
-    for f in features:
-        if f["milestone"] != m.id or not f.free or f["phase"] != "defined":
+def _definition_actions(root, m, features, design, action) -> None:
+    """Definition lane: specs first; once all are approved, the design of the milestone's
+    screens. The technical design waits for construction."""
+    own = [f for f in features if f["milestone"] == m.id]
+    defined = [f for f in own if f["phase"] == "defined"]
+    for f in defined:
+        if not f.free:
             continue
-        arts = artifacts(root, f)
-        if not arts["spec"].exists():
+        if not artifacts(root, f)["spec"].exists():
             action("launch analyst", f.id, "specify")
-        elif f["needs_mockup"] == "yes" and not arts["mockup"].exists():
-            action("launch prototyper", f.id, "mockup")
         else:
             action("orchestrator", f.id, "approve_spec")
+    ui = ui_features(m, own)
+    if defined or not ui or not m.free:
+        return
+    no_mockup = [f.id for f in ui if not artifacts(root, f)["mockup"].exists()]
+    if design["tool"] == "claude_design" and design["level"] != "none":
+        if m["design"] != "approved":
+            action("orchestrator", m.id, "design_session")
+        elif no_mockup:
+            canvas = root / ".factory" / "artifacts" / m.id / "canvas" / "canvas.json"
+            if canvas.exists():
+                action("launch prototyper", ",".join(no_mockup), "import_design")
+            else:
+                action("orchestrator", m.id, "download_design")
+    elif no_mockup:
+        action("launch prototyper", ",".join(no_mockup), "mockup")
+    elif m["design"] != "approved":
+        action("orchestrator", m.id, "approve_milestone_design")
 
 
 def _milestone_actions(root, m, features, tasks, deps_ok, action) -> None:
@@ -1202,12 +1338,14 @@ def _milestone_actions(root, m, features, tasks, deps_ok, action) -> None:
         if phase == "defined":
             if not arts["spec"].exists():
                 action("launch analyst", f.id, "specify")
-            elif f["needs_mockup"] == "yes" and not arts["mockup"].exists():
-                action("launch prototyper", f.id, "mockup")
             else:
                 action("orchestrator", f.id, "approve_spec")
         elif phase == "specified":
-            action("launch architect", f.id, "feature")
+            # A feature added to a milestone already being built: mockup on the approved style.
+            if f["needs_mockup"] == "yes" and not arts["mockup"].exists():
+                action("launch prototyper", f.id, "mockup")
+            else:
+                action("launch architect", f.id, "feature")
         elif phase == "building":
             own = [t for t in tasks if t["parent"] == f.id and t["phase"] != "discarded"]
             open_ = [t for t in own if t["phase"] != "done"]
@@ -1406,8 +1544,9 @@ def state_json(root: Path) -> dict:
                 if v.exists()}
         data = {"meta": d.meta, "body": d.body, "artifacts": arts}
         if d.type == "milestone":
-            data["ready"] = is_ready(d, all_docs)
+            data["ready"] = is_ready(d, all_docs, root)
             data["missing"] = missing_specs(d, all_docs)
+            data["missing_design"] = missing_design(d, all_docs, root)
         if d.type == "feature" and "spec" in arts:
             text = (art_base / arts["spec"]).read_text(encoding="utf-8")
             data["criteria"] = len(set(re.findall(r"AC-F\d+-\d+", text)))
@@ -1445,7 +1584,8 @@ def apply_panel_action(root: Path, data: dict) -> str:
     d = load(root, ident)
     awaiting = d["awaiting"]
     what_key = {"approve_spec": "w_approve_spec", "approve_design": "w_approve_design",
-                "approve_milestone": "w_approve_milestone"}.get(awaiting)
+                "approve_milestone": "w_approve_milestone",
+                "approve_milestone_design": "w_approve_milestone_design"}.get(awaiting)
     what = msg(what_key) if what_key else awaiting
     bad = Error(msg("bad_action", action=action, id=ident, awaiting=awaiting or "-"))
 
@@ -1453,6 +1593,10 @@ def apply_panel_action(root: Path, data: dict) -> str:
         text = msg("dec_from_panel") + (f"\n\n{extra}" if extra else "")
         return record_decision(root, msg("dec_title", what=msg(title_key), id=d.id), d.id, text)
 
+    if action == "approve" and awaiting == "approve_milestone_design":
+        dec = decide(what_key)
+        approve_milestone_design(root, d)
+        return msg("in_approve", id=d.id, what=what, dec=dec)
     if action == "approve":
         target = {"approve_spec": "specified", "approve_design": "approved",
                   "approve_milestone": "defining"}.get(awaiting)
@@ -1603,8 +1747,8 @@ def _handler(root: Path):
             not_found = msg("not_found_http").encode("utf-8")
             try:
                 if route in ("/", "/index.html"):
-                    html = (PLUGIN_ROOT / "panel" / "index.html").read_bytes()
-                    self._send(200, html, "text/html; charset=utf-8")
+                    page = (PLUGIN_ROOT / "panel" / "index.html").read_bytes()
+                    self._send(200, page, "text/html; charset=utf-8")
                 elif route == "/api/state":
                     set_lang(root)  # the language may change while the panel runs
                     data = json.dumps(state_json(root), ensure_ascii=False, default=str)
@@ -1835,6 +1979,20 @@ def main(argv=None) -> int:
 
     s = sub.add_parser("design-kit", help="create .factory/artifacts/design/ from the kit template")
     s.set_defaults(f=cmd_design_kit)
+
+    s = sub.add_parser("design-import",
+                       help="import a Claude Design artboard (.dc.html) as a page of a feature's mockup")
+    s.add_argument("board", help="downloaded .dc.html file")
+    s.add_argument("feature", help="feature ID (F###)")
+    s.add_argument("--page", default="index", help="page name inside mockup/ (default: index)")
+    s.add_argument("--assets", help="folder with the downloaded canvas assets, named by asset id "
+                                    "(default: assets/ next to the board)")
+    s.set_defaults(f=cmd_design_import)
+
+    s = sub.add_parser("approve-design",
+                       help="record the human's approval of a milestone's design (from the terminal)")
+    s.add_argument("id", help="milestone ID")
+    s.set_defaults(f=cmd_approve_design)
 
     s = sub.add_parser("tokens", help="generate tokens.css from tokens.json")
     s.add_argument("--src", help="source tokens.json (default: the project's kit)")

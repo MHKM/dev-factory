@@ -20,7 +20,7 @@ Los identificadores (comandos, campos, valores, carpetas) están en inglés. Los
   artifacts/
     vision.md  roadmap.md  architecture.md
     design/  brand-guide.md  tokens.json  tokens.css  index.html  assets/
-    M01/   design.md  batch.md
+    M01/   design.md  batch.md  canvas/
     F001/  spec.md  business-rules.md  mockup/index.html  design.md  validation.md
     T001/  review.md
   decisions/
@@ -76,12 +76,12 @@ updated: 2026-10-12 19:05
 | Tipo | Campos propios |
 |---|---|
 | project | `name`, `description`, `main_branch`, `remote` (`github`/`none`), `interface` (`web`/`none`/`mixed`), `language` (idioma de todo lo que lee el humano: `es` por defecto o `en`), `max_attempts`, `discovery` (`pending`/`done`), `architecture` (`pending`/`done`), `auto_build` (`yes`/`no`), `preview_root`, `preview_url` |
-| design | `level` (`full`/`guidelines`/`none`, vacío = sin decidir) |
-| milestone | `order` (posición), `goal`, `branch` (release), `planned` (`yes`/`no`), `closing` (`requested`/`merged`), `pr` |
+| design | `level` (`full`/`guidelines`/`none`, vacío = sin decidir), `tool` (`claude_design` = lienzo de claude.ai / `local` = maquetas HTML del prototipador), `plugin` (skill de diseño elegida, p. ej. `frontend-design:frontend-design`, o `none`) |
+| milestone | `order` (posición), `goal`, `branch` (release), `planned` (`yes`/`no`), `closing` (`requested`/`merged`), `pr`, `design` (`approved` cuando el humano aprueba el diseño de sus pantallas), `canvas` (enlace al lienzo de Claude Design) |
 | feature | `milestone`, `priority` (`must`/`should`/`later`), `version`, `depends_on`, `needs_mockup` (`yes`/`no`), `validation` (`ko`/`rejected`/vacío) |
 | task | `kind` (`technical`/`cross_cutting`/`fix`/`hotfix`), `parent`, `milestone`, `package`, `agent`, `attempts`, `depends_on`, `branch`, `pr`, `review` (`ok`/`ko`) |
 
-Todos tienen además `id`, `type`, `title`, `phase`, `status`, `reason`, `created` y `updated`. Con `waiting_human`, el campo `awaiting` dice qué se espera (`approve_spec`, `approve_design`, `approve_milestone`, `approve_merge`, `present_batch`, `close_milestone`, `answer_questions`) y decide los botones del panel.
+Todos tienen además `id`, `type`, `title`, `phase`, `status`, `reason`, `created` y `updated`. Con `waiting_human`, el campo `awaiting` dice qué se espera (`approve_spec`, `approve_design`, `approve_milestone`, `approve_milestone_design`, `approve_merge`, `present_batch`, `close_milestone`, `answer_questions`) y decide los botones del panel.
 
 ### Fases y situaciones
 
@@ -117,13 +117,15 @@ IDs: `M01` (hito), `F001` (funcionalidad), `T001` (tarea), `D001` (decisión), `
 | `factory resolve ID --decision D###` | Mueve las preguntas a «resueltas» y vuelve a `queued` |
 | `factory attempt ID [--reason M]` | Suma un intento y bloquea al llegar a `max_attempts` |
 | `factory start-definition M##` | Inicia el carril de definición de un hito propuesto |
-| `factory start-build M##` | Pone en cola de construcción un hito con todas sus especificaciones aprobadas; si no hay otro construyéndose, arranca ya y crea su release |
+| `factory start-build M##` | Pone en cola de construcción un hito con todas sus especificaciones aprobadas y, si tiene pantallas, su diseño aprobado e importado; si no hay otro construyéndose, arranca ya y crea su release |
+| `factory approve-design M##` | Registra que el humano aprobó el diseño del hito (si lo dice en la terminal). El primero aprobado fija también el kit (`design` → `approved`) |
 | `factory move F### --milestone M##\|-` | Mueve una funcionalidad a otro hito (`-` = «más adelante»). Se niega si ya tiene código en construcción o integrado; descarta sus tareas pendientes |
 | `factory remove M##` | Borra un hito propuesto y vacío |
 | `factory open-release M##` | Crea `release/M##-…` desde la rama principal (y la sube si hay GitHub) |
 | `factory export REF` | Exporta una rama a `.factory/tmp/<ref>/` para leerla o probarla sin cambiar de rama |
 | `factory sync` | Detecta PRs o ramas fusionadas (tareas a `done`, hitos a `closed`) y avanza los carriles: con `auto_build`, los hitos listos pasan a la cola; si no hay ninguno construyéndose, arranca el primero de la cola y crea su release desde la rama principal |
 | `factory design-kit` | Crea `.factory/artifacts/design/` desde la plantilla del kit (sin pisar lo existente; la galería se refresca siempre) y genera `tokens.css` |
+| `factory design-import PANTALLA.dc.html F### [--page index] [--assets DIR]` | Convierte una mesa de trabajo de Claude Design descargada en una página de la maqueta de la funcionalidad (`mockup/<page>.html`): rellena los huecos con los valores por defecto, pasa los estilos al `<head>`, quita el motor del lienzo y copia los recursos (`/_blob/<id>`) desde `DIR` (por defecto `assets/` junto a la pantalla) |
 | `factory tokens [--src tokens.json] [--out tokens.css]` | Genera variables CSS (con modo oscuro) desde un `tokens.json` en formato W3C Design Tokens. Sin argumentos usa el del kit; con `--src` sirve para el del repositorio |
 | `factory say --text T` | El orquestador escribe un mensaje en el diálogo del panel |
 | `factory panel [--port 8765] [--open]` | Sirve el panel de control en `http://127.0.0.1:<puerto>/` (si está ocupado, prueba los siguientes) y guarda la URL en `.factory/panel.url` |
@@ -138,16 +140,22 @@ Calcula qué hacer a partir del estado. El orquestador lo ejecuta en cada vuelta
 |---|---|---|
 | `discovery` pendiente | orchestrator | `discovery` |
 | `architecture` pendiente | architect | `base` |
-| Proyecto con interfaz (`web`/`mixed`) y `design.level` sin decidir | orchestrator | `choose_design` |
-| `design.level` `full`/`guidelines` y sin kit | prototyper | `design_system` |
-| Kit creado y `design` no `approved` | orchestrator | `approve_design` |
+| Proyecto con interfaz (`web`/`mixed`) y `design.level` o `design.tool` sin decidir | orchestrator | `choose_design` (nivel, dónde se diseña, plugin de diseño y material de marca) |
+| `tool=local`, nivel `full`/`guidelines` y sin kit | prototyper | `design_system` |
+| `tool=local`, kit creado y `design` no `approved` | orchestrator | `approve_design` |
 | Ningún hito empezado | orchestrator | `approve_milestone_first` (con visión, roadmap y arquitectura; aprobar = iniciar su definición) |
 | **Carril de definición** (cada hito en `defining`, en paralelo): | | |
 | Hito en construcción sin `planned=yes` | architect | `milestone` |
 | Feature `defined` sin `spec.md` | analyst | `specify` |
-| Feature `defined` con spec, `needs_mockup=yes` y sin maqueta | prototyper | `mockup` |
-| Feature `defined` con todo listo | orchestrator | `approve_spec` |
+| Feature `defined` con spec | orchestrator | `approve_spec` |
+| *Todas las especificaciones aprobadas y alguna feature con `needs_mockup=yes`:* | | |
+| `tool=claude_design`, diseño del hito sin aprobar | orchestrator | `design_session` (lienzo mano a mano con el humano; `--awaiting approve_milestone_design`) |
+| `tool=claude_design`, diseño aprobado y lienzo sin descargar en `artifacts/M##/canvas/` | orchestrator | `download_design` |
+| `tool=claude_design`, lienzo descargado y features sin maqueta | prototyper | `import_design` (maquetas y kit) |
+| `tool=local`, features sin maqueta | prototyper | `mockup` |
+| `tool=local`, maquetas hechas y diseño sin aprobar | orchestrator | `approve_milestone_design` |
 | **Carril de construcción** (el único hito en `building`): | | |
+| Feature `specified` (añadida tarde, con pantallas y sin maqueta) | prototyper | `mockup` |
 | Feature `specified` | architect | `feature` |
 | Feature `building` con `validation` ko/rejected y sin tareas abiertas | architect | `fix` |
 | Feature `building` con todas sus tareas en `done` | validator | `feature_validation` |
@@ -160,7 +168,9 @@ Calcula qué hacer a partir del estado. El orquestador lo ejecuta en cada vuelta
 
 Modos que no salen de `factory next` y lanza el orquestador según la situación: `revise_spec` (analyst, prototyper), `revise_design` (prototyper) y `change_request` (analyst).
 
-La arquitectura base y el diseño van después del descubrimiento y pueden avanzar en paralelo (son elementos distintos). Los hitos esperan a que los dos estén listos: así las maquetas ya salen con el kit aprobado.
+La arquitectura base y la elección de diseño van después del descubrimiento y pueden avanzar en paralelo (son elementos distintos). Los hitos esperan a que los dos estén listos. Con `tool=local` eso incluye el kit aprobado, para que las maquetas salgan con él; con `tool=claude_design` basta con la elección, porque la identidad sale del diseño del primer hito.
+
+Un hito está **listo para construir** cuando no le queda ninguna especificación por aprobar y, si tiene pantallas, su diseño está aprobado y cada funcionalidad con pantallas tiene maqueta.
 
 ## Actividad: `.factory/activity.json`
 

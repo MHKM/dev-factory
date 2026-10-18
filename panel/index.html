@@ -311,7 +311,8 @@ const I18N = {
     hint_main: "Rama principal: lo aceptado (producción).",
     hint_task: "Rama de la tarea {id}: lo que se revisa en su PR. Se recarga sola con cada commit.",
     nothing_preview: "Todavía no hay nada que ver aquí: falta un index.html.",
-    start_definition: "Iniciar definición", start_build: "Comenzar construcción", not_ready: "Falta aprobar la especificación de {x}",
+    start_definition: "Iniciar definición", start_build: "Comenzar construcción", not_ready: "Falta aprobar la especificación de {x}", not_ready_design: "Falta el diseño aprobado de {x}",
+    canvas: "Lienzo de diseño ↗", design_ok: "Diseño aprobado",
     edit: "Editar", save: "Guardar", delete: "Borrar", up: "Subir", down: "Bajar", move_to: "Mover a…", backlog: "Más adelante",
     backlog_hint: "Funcionalidades aparcadas, sin hito.", new_milestone: "+ Nuevo hito", new_feature: "+ Nueva funcionalidad",
     title_ph: "Título", goal_ph: "Al terminar se puede…", feature_text_ph: "Describe lo que necesitas. El orquestador comprobará si encaja o es un cambio de algo ya hecho.",
@@ -359,7 +360,8 @@ const I18N = {
     hint_main: "Main branch: what has been accepted (production).",
     hint_task: "Branch of task {id}: what its PR shows. Reloads by itself on every commit.",
     nothing_preview: "Nothing to see here yet: there is no index.html.",
-    start_definition: "Start definition", start_build: "Start construction", not_ready: "The spec of {x} still needs approval",
+    start_definition: "Start definition", start_build: "Start construction", not_ready: "The spec of {x} still needs approval", not_ready_design: "{x} still need an approved design",
+    canvas: "Design canvas ↗", design_ok: "Design approved",
     edit: "Edit", save: "Save", delete: "Delete", up: "Up", down: "Down", move_to: "Move to…", backlog: "Later",
     backlog_hint: "Parked features, with no milestone.", new_milestone: "+ New milestone", new_feature: "+ New feature",
     title_ph: "Title", goal_ph: "When done you can…", feature_text_ph: "Describe what you need. The orchestrator will check whether it fits or changes something already built.",
@@ -386,7 +388,9 @@ const LABELS = {
       specify: "Especificar", mockup: "Maqueta", approve_spec: "Aprobar especificación", feature: "Diseño técnico y tareas", fix: "Correcciones",
       feature_validation: "Validar funcionalidad", implement: "Implementar", resume: "Retomar", hotfix: "Hotfix", task_review: "Revisar PR",
       approve_merge: "Aprobar y fusionar PR", present_batch: "Lote de aceptación", close_milestone: "Cerrar hito",
-      choose_design: "Elegir nivel de diseño", design_system: "Kit de diseño", approve_design: "Aprobar kit de diseño", revise_design: "Revisar kit de diseño" },
+      choose_design: "Elegir cómo se diseña", design_system: "Kit de diseño", approve_design: "Aprobar kit de diseño", revise_design: "Revisar kit de diseño",
+      design_session: "Diseñar el hito en Claude Design", download_design: "Bajar el diseño aprobado", import_design: "Importar el diseño a maquetas",
+      approve_milestone_design: "Aprobar el diseño del hito" },
     agent: { orchestrator: "Orquestador", analyst: "Analista", prototyper: "Prototipador", architect: "Arquitecto", developer: "Desarrollador", validator: "Validador" },
     priority: { must: "imprescindible", should: "deseable", later: "más adelante" },
     level: { full: "completo", guidelines: "directrices", none: "sin diseño" },
@@ -414,7 +418,9 @@ const LABELS = {
       specify: "Specify", mockup: "Mockup", approve_spec: "Approve spec", feature: "Technical design and tasks", fix: "Fixes",
       feature_validation: "Validate feature", implement: "Implement", resume: "Resume", hotfix: "Hotfix", task_review: "Review PR",
       approve_merge: "Approve and merge PR", present_batch: "Acceptance batch", close_milestone: "Close milestone",
-      choose_design: "Choose design level", design_system: "Design kit", approve_design: "Approve design kit", revise_design: "Revise design kit" },
+      choose_design: "Choose how to design", design_system: "Design kit", approve_design: "Approve design kit", revise_design: "Revise design kit",
+      design_session: "Design the milestone in Claude Design", download_design: "Download the approved design", import_design: "Import the design as mockups",
+      approve_milestone_design: "Approve milestone design" },
     agent: { orchestrator: "Orchestrator", analyst: "Analyst", prototyper: "Prototyper", architect: "Architect", developer: "Developer", validator: "Validator" },
     priority: { must: "must", should: "should", later: "later" },
     level: { full: "full", guidelines: "guidelines", none: "no design" },
@@ -519,6 +525,10 @@ function artifactButtons(e) {
       : `<button class="button" onclick="event.stopPropagation(); openSide('${esc(e.meta.id)}', '${k}')">${esc(LB.artifact[k] || k)}</button>`
   ).join("");
 }
+function canvasButton(e) {
+  const url = e.meta.canvas;
+  return url && /^https:\/\//.test(url) ? `<a class="button" href="${esc(url)}" target="_blank" onclick="event.stopPropagation()">${esc(t("canvas"))}</a>` : "";
+}
 function prButton(e) {
   const pr = e.meta.pr;
   return pr && state.prs_url ? `<a class="button primary" href="${esc(state.prs_url + pr)}" target="_blank" onclick="event.stopPropagation()">${esc(t("open_pr", { n: pr }))}</a>` : "";
@@ -554,8 +564,9 @@ function productView() {
       <h2>${esc(m.meta.id)} · ${esc(t("milestone"))}</h2>
       ${editingMilestone === m.meta.id ? milestoneForm(m) : `
       <div class="milestone-head"><h3>${esc(m.meta.title)}</h3>${chip(phaseLabel(m.meta))}
+        ${m.meta.design === "approved" ? chip([t("design_ok"), "green"]) : ""}
         ${m.meta.status === "waiting_human" ? chip([t("waiting_prefix") + m.meta.reason, "red"]) : ""}
-        <span class="spacer"></span>${milestoneTools(m)}${prButton(m)}${artifactButtons(m)}
+        <span class="spacer"></span>${milestoneTools(m)}${prButton(m)}${canvasButton(m)}${artifactButtons(m)}
         <button class="button" onclick="openSide('${m.meta.id}')">${esc(t("card"))}</button></div>
       <div class="muted">${esc(t("goal"))} ${esc(m.meta.goal || "—")}</div>`}
       <div class="row" style="margin-top:8px"><div class="bar" style="flex:1"><div style="width:${alive.length ? accepted / alive.length * 100 : 0}%"></div></div>
@@ -620,7 +631,8 @@ function milestoneTools(m) {
   if (ph === "proposed") tools.push(`<button class="button primary" onclick="act('${id}', 'start_definition', this.textContent)">${esc(t("start_definition"))}</button>`);
   if (ph === "defining" || ph === "proposed") {
     const ready = ms.ready && ph === "defining";
-    const tip = ms.missing && ms.missing.length ? t("not_ready", { x: ms.missing.join(", ") }) : "";
+    const tip = ms.missing && ms.missing.length ? t("not_ready", { x: ms.missing.join(", ") })
+      : ms.missing_design && ms.missing_design.length ? t("not_ready_design", { x: ms.missing_design.join(", ") }) : "";
     tools.push(`<button class="button ${ready ? "primary" : ""}" ${ready ? "" : "disabled"} title="${esc(tip)}"
       onclick="act('${id}', 'start_build', this.textContent)">${esc(t("start_build"))}</button>`);
   }
@@ -720,7 +732,7 @@ function constructionView(pending) {
     const m = e.meta, questions = section(e.body, "Pending questions");
     return `<div class="card attention">
       <div class="row"><span class="id">${esc(m.id)}</span>${chip(LB.status[m.status])}<b>${esc(titleOf(e))}</b>
-        <span class="spacer"></span>${["approve_merge", "close_milestone"].includes(m.awaiting) ? "" : prButton(e)}${artifactButtons(e)}<button class="button" onclick="openSide('${esc(m.id)}')">${esc(t("card"))}</button></div>
+        <span class="spacer"></span>${["approve_merge", "close_milestone"].includes(m.awaiting) ? "" : prButton(e)}${canvasButton(e)}${artifactButtons(e)}<button class="button" onclick="openSide('${esc(m.id)}')">${esc(t("card"))}</button></div>
       <div style="margin-top:6px">${esc(m.reason || "")}</div>
       ${questions && m.awaiting !== "answer_questions" ? `<div class="question md">${md(questions)}</div>` : ""}
       ${decisionBlock(e, questions)}
@@ -967,7 +979,7 @@ function decisionBlock(e, questions) {
     case "approve_spec":
       return `<div class="decide"><div class="row">${buttons([["approve", t("approve"), "primary"]])}${changes()}
         ${buttons([["postpone", t("postpone")], ["discard", t("discard"), "danger"]])}</div></div>`;
-    case "approve_design": case "approve_milestone":
+    case "approve_design": case "approve_milestone": case "approve_milestone_design":
       return `<div class="decide"><div class="row">${buttons([["approve", t("approve"), "primary"]])}${changes()}</div></div>`;
     case "approve_merge":
       return `<div class="decide"><div class="row">${prButton(e)}${buttons([["merged", t("merged")]])}${changes()}</div></div>`;
