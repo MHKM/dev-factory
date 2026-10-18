@@ -10,6 +10,13 @@ Lo pendiente para cerrar dev-factory. Cada elemento dice si se puede avanzar **s
 - No se toca nada fuera de este repositorio. Los proyectos de prueba se crean en carpetas temporales.
 - Al terminar cada elemento se actualiza su estado aquí.
 
+## Dónde lo dejamos (2026-10-19)
+
+- **Siguiente paso, contigo:** B07, cerrar las preguntas de `docs/stack-interface.md`. Con eso, B16-B20 se pueden hacer sin ti.
+- **Pendiente de tu revisión:** el documento funcional de ejemplo (B04). Para volver a verlo: un proyecto con visión y especificaciones (el de ejemplo de Boadilla Motor estaba en una carpeta temporal y puede haberse borrado; se rehace en minutos) y `factory deliverable functional`.
+- **Sin ti, cuando quieras arrancar el trabajo autónomo:** B01 (pruebas automáticas) primero, después B15 y B02.
+- **Contigo, más adelante:** B09 (prueba real completa con Boadilla Motor desde cero, con el diseño por hito y el documento funcional) y B08 (retomar una sesión).
+
 ## Para ti
 
 Decisiones y pruebas que esperan tu atención.
