@@ -12,18 +12,18 @@ Cada construcción va en **su propia carpeta**, fuera de este repositorio:
 
 ```bash
 mkdir ~/Documents/projects/web-taller && cd ~/Documents/projects/web-taller
-claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator "arranca"
+claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator
 ```
 
 Para no escribirlo cada vez:
 
 ```bash
-alias factory-start='claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator "arranca"'
+alias factory-start='claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator'
 ```
 
 `--plugin-dir` carga el plugin desde este repositorio tal como esté en disco, así que cualquier cambio en agentes, plantillas o en el comando se aplica en la siguiente sesión. Alternativa estable: instalarlo desde el marketplace local (`/plugin marketplace add ~/Documents/projects/dev-factory` y después instalar `factory`) y arrancar solo con `claude --agent factory:orchestrator`.
 
-El `"arranca"` final es el primer mensaje: sin él la sesión se queda esperando a que escribas (el arranque automático del agente no se dispara de forma fiable).
+Tu primer mensaje arranca la sesión: en un proyecto nuevo, cuéntale qué quieres construir; para retomar, cualquier saludo basta y te resume el estado.
 
 Para retomar un proyecto, se arranca igual en su carpeta: el orquestador lee `.factory/`, sincroniza y resume dónde estáis.
 
