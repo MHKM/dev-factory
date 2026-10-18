@@ -60,6 +60,12 @@ Al arrancar, el orquestador abre el panel en el navegador (`http://127.0.0.1:876
 - **Producto**: lo definido y lo aprobado, con los tres OK de cada funcionalidad y acceso a especificaciones, maquetas, diseños, validaciones y decisiones.
 - **Construcción**: lo que te espera (con botón directo a la PR cuando toca fusionar), los agentes trabajando ahora (rol, elementos y última acción, con aviso si un agente lleva más de 5 minutos sin actividad), los próximos pasos, lo terminado recientemente y el kanban de tareas.
 
+### Hitos: definir en paralelo, construir de uno en uno
+
+En la vista Producto cada hito tiene sus botones según su fase: **Iniciar definición** (propuesto), **Comenzar construcción** (activo cuando todas sus especificaciones están aprobadas; si otro se está construyendo, queda en cola), subir/bajar, editar y borrar (solo propuestos y vacíos). Cada funcionalidad tiene **Mover a…** (otro hito o «Más adelante»). Abajo: **+ Nuevo hito** y **+ Nueva funcionalidad** (el orquestador comprueba si encaja o es un cambio de algo ya hecho).
+
+Arriba, el interruptor **Construcción automática**: activado, un hito pasa a construcción en cuanto su definición está aprobada, sin pedirte confirmación.
+
 ### Decidir y hablar desde el panel
 
 - **Botones en «Te espera»**: aprobar, pedir cambios (con comentario), aplazar, descartar, «ya la he fusionado», aceptar el lote y las opciones de las preguntas de los agentes. El panel aplica la decisión al momento (estado y registro de decisión) y avisa al orquestador.

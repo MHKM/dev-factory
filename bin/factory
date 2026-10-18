@@ -29,7 +29,8 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = PLUGIN_ROOT / "templates"
 
 PHASES = {
-    "milestone": ["proposed", "approved", "closed"],
+    # "approved" is the pre-lanes name of "building"; kept so older projects still load.
+    "milestone": ["proposed", "defining", "queued", "building", "closed", "approved"],
     "feature": ["defined", "specified", "building", "validated", "accepted", "postponed",
                 "discarded"],
     "task": ["pending", "development", "in_review", "done", "discarded"],
@@ -48,9 +49,10 @@ DESIGN_LEVELS = ["none", "guidelines", "full"]
 PREFIX_BY_TYPE = {"milestone": "M", "feature": "F", "task": "T"}
 WIDTH = {"M": 2, "F": 3, "T": 3, "D": 3}
 STALE_SECONDS = 300
+BACKLOG = "-"  # milestone value of features parked for "later"
 
 FIELDS = {
-    "milestone": ["id", "type", "title", "phase", "status", "reason", "goal", "branch",
+    "milestone": ["id", "type", "title", "order", "phase", "status", "reason", "goal", "branch",
                   "planned", "closing", "pr", "created", "updated"],
     "feature": ["id", "type", "title", "milestone", "phase", "status", "reason", "priority",
                 "version", "depends_on", "needs_mockup", "validation", "created", "updated"],
@@ -165,6 +167,50 @@ MESSAGES = {
     "in_review_one": ("El humano quiere revisar el lote de {id} funcionalidad a funcionalidad: preséntaselas en el panel.",
                       "The human wants to review the batch of {id} feature by feature: present them in the panel."),
     "in_message": ("Mensaje del humano desde el panel: {text}", "Message from the human in the panel: {text}"),
+    "not_ready": ("{id} aún no está listo para construir: falta aprobar la especificación de {missing}",
+                  "{id} is not ready to build yet: the spec of {missing} still needs approval"),
+    "bad_milestone_phase": ("{id} está en fase {phase}; esta acción no aplica", "{id} is in phase {phase}; this action does not apply"),
+    "move_has_code": ("{id} ya tiene código en construcción o integrado; para sacarlo del hito, aplázalo o descártalo (con reversión)",
+                      "{id} already has code being built or integrated; to take it out, postpone or discard it (with a revert)"),
+    "move_closed": ("No se puede mover a un hito cerrado", "Cannot move into a closed milestone"),
+    "remove_not_empty": ("Solo se puede borrar un hito propuesto y sin funcionalidades ni tareas",
+                         "Only a proposed milestone with no features or tasks can be deleted"),
+    "log_moved": ("movida de {old} a {new}", "moved from {old} to {new}"),
+    "log_tasks_discarded": ("tareas pendientes descartadas al mover: {tasks}", "pending tasks discarded on move: {tasks}"),
+    "log_queued": ("en cola de construcción", "queued for construction"),
+    "log_building": ("construcción iniciada", "construction started"),
+    "adv_queued": ("{id}: listo para construir → en cola", "{id}: ready to build → queued"),
+    "adv_building": ("{id}: construcción iniciada en {branch}", "{id}: construction started on {branch}"),
+    "backlog": ("Más adelante", "Later"),
+    "w_start_definition": ("Inicio de la definición", "Definition started"),
+    "w_start_build": ("Inicio de la construcción", "Construction started"),
+    "w_move": ("Funcionalidad movida", "Feature moved"),
+    "w_new_milestone": ("Hito nuevo", "New milestone"),
+    "w_remove_milestone": ("Hito borrado", "Milestone deleted"),
+    "w_new_feature": ("Funcionalidad nueva", "New feature"),
+    "in_start_definition": ("El humano ha iniciado la definición de {id} desde el panel. Sigue con `factory next`: el analista (y el prototipador) pueden empezar.",
+                            "The human started the definition of {id} from the panel. Continue with `factory next`: the analyst (and prototyper) can start."),
+    "in_start_build": ("El humano ha pedido construir {id}. {result} Sigue con `factory next`.",
+                       "The human asked to build {id}. {result} Continue with `factory next`."),
+    "in_build_queued": ("Queda en cola hasta que termine el hito en construcción.", "It is queued until the milestone being built finishes."),
+    "in_move": ("El humano ha movido {id} de {old} a {new} desde el panel. Actualiza `roadmap.md`. Sigue con `factory next`.",
+                "The human moved {id} from {old} to {new} in the panel. Update `roadmap.md`. Continue with `factory next`."),
+    "in_new_milestone": ("El humano ha creado el hito {id} «{title}» desde el panel. Actualiza `roadmap.md`.",
+                         "The human created milestone {id} “{title}” in the panel. Update `roadmap.md`."),
+    "in_edit_milestone": ("El humano ha editado el hito {id} desde el panel. Actualiza `roadmap.md` si cambia algo relevante.",
+                          "The human edited milestone {id} in the panel. Update `roadmap.md` if anything relevant changed."),
+    "in_reorder": ("El humano ha cambiado el orden de los hitos: {order}. Actualiza `roadmap.md`.",
+                   "The human reordered the milestones: {order}. Update `roadmap.md`."),
+    "in_remove_milestone": ("El humano ha borrado el hito {id} desde el panel. Actualiza `roadmap.md`.",
+                            "The human deleted milestone {id} in the panel. Update `roadmap.md`."),
+    "in_new_feature": ("El humano pide una funcionalidad nueva desde el panel, creada como {id} en {milestone}: «{text}». "
+                       "Antes de que se especifique, comprueba si en realidad cambia algo ya hecho (cambio de requisito), si choca con la arquitectura base o el diseño, "
+                       "o si la petición es demasiado vaga; en esos casos díselo en el diálogo o pregúntale con `factory ask {id}`. Actualiza `roadmap.md` (y `vision.md` si cambia el alcance).",
+                       "The human requests a new feature from the panel, created as {id} in {milestone}: “{text}”. "
+                       "Before it is specified, check whether it actually changes something already built (change request), clashes with the base architecture or the design, "
+                       "or is too vague; if so, tell them in the dock or ask with `factory ask {id}`. Update `roadmap.md` (and `vision.md` if the scope changes)."),
+    "in_auto_build": ("El humano ha {state} la construcción automática.", "The human turned automatic construction {state}."),
+    "on": ("activado", "on"), "off": ("desactivado", "off"),
     "missing_say": ("Falta el texto (--text o --text - por stdin)", "Missing text (--text, or --text - for stdin)"),
 }
 
@@ -465,11 +511,14 @@ def cmd_new(a) -> None:
     depends = [x.strip().upper() for x in (a.depends or "").split(",") if x.strip()]
 
     if doc_type == "milestone":
-        meta.update({"goal": a.goal or "", "planned": "no"})
+        orders = [int(m["order"] or 0) for m in load_all(root) if m.type == "milestone"]
+        meta.update({"goal": a.goal or "", "planned": "no",
+                     "order": a.order if a.order is not None else (max(orders) + 1 if orders else 1)})
     elif doc_type == "feature":
         if not a.milestone:
             raise Error(msg("need_milestone"))
-        load(root, a.milestone)
+        if a.milestone != BACKLOG:
+            load(root, a.milestone)
         meta.update({"milestone": a.milestone.upper(), "priority": a.priority or "must",
                      "version": 1, "depends_on": depends})
     else:
@@ -705,11 +754,53 @@ def cmd_attempt(a) -> None:
     print(f"{d.id}: {note}" + (f" → {msg('blocked')}" if d["status"] == "blocked" else ""))
 
 
-def cmd_open_release(a) -> None:
-    root = project_root()
-    m = load(root, a.id)
-    if m.type != "milestone" or m["phase"] != "approved":
-        raise Error(msg("need_approved", id=m.id))
+def is_building(m: Doc) -> bool:
+    return m.type == "milestone" and m["phase"] in ("building", "approved")
+
+
+def milestones_sorted(docs: list) -> list:
+    return sorted((d for d in docs if d.type == "milestone"),
+                  key=lambda m: (int(m["order"] or 0) or 999, m.id))
+
+
+def missing_specs(m: Doc, docs: list) -> list:
+    """Features of the milestone whose spec is not approved yet (empty list = ready to build)."""
+    return [f.id for f in docs if f.type == "feature" and f["milestone"] == m.id
+            and f["phase"] == "defined"]
+
+
+def is_ready(m: Doc, docs: list) -> bool:
+    """Ready to build when no feature of the milestone is waiting for its spec approval.
+    A milestone with no features (e.g. foundations only) is ready as well."""
+    return not missing_specs(m, docs)
+
+
+def advance_milestones(root: Path) -> list:
+    """Deterministic lane moves: auto-queue ready milestones and start the next queued one."""
+    changes = []
+    docs = load_all(root)
+    if str(project(root)["auto_build"]) == "yes":
+        for m in milestones_sorted(docs):
+            if m["phase"] == "defining" and is_ready(m, docs):
+                _apply_phase(m, "queued", None, None)
+                m.log(msg("log_queued"))
+                m.save()
+                changes.append(msg("adv_queued", id=m.id))
+        docs = load_all(root)
+    if not any(is_building(m) for m in docs):
+        queued = [m for m in milestones_sorted(docs) if m["phase"] == "queued"]
+        if queued:
+            m = queued[0]
+            _apply_phase(m, "building", None, None)
+            m.log(msg("log_building"))
+            m.save()
+            branch = open_release(root, m)
+            changes.append(msg("adv_building", id=m.id, branch=branch))
+    return changes
+
+
+def open_release(root: Path, m: Doc) -> str:
+    """Create the release branch of a milestone from the latest main branch."""
     p = project(root)
     base = p["main_branch"] or "master"
     branch = m["branch"] or f"release/{m.id}-{slug(m['title'])}"
@@ -724,7 +815,15 @@ def cmd_open_release(a) -> None:
     m.meta["branch"] = branch
     m.log(msg("log_release", branch=branch, base=base))
     m.save()
-    print(branch)
+    return branch
+
+
+def cmd_open_release(a) -> None:
+    root = project_root()
+    m = load(root, a.id)
+    if not is_building(m):
+        raise Error(msg("need_approved", id=m.id))
+    print(open_release(root, m))
 
 
 def cmd_export(a) -> None:
@@ -782,12 +881,115 @@ def sync(root: Path) -> list:
                 _apply_phase(d, "closed", None, None)
                 d.save()
                 changes.append(msg("merged_release", id=d.id, main=main))
-    return changes
+    return changes + advance_milestones(root)
 
 
 def cmd_sync(a) -> None:
     changes = sync(project_root())
     print("\n".join(changes) if changes else msg("no_changes"))
+
+
+# --------------------------------------------------------------------------- milestones
+
+def start_definition(root: Path, ident: str) -> Doc:
+    m = load(root, ident)
+    if m.type != "milestone" or m["phase"] != "proposed":
+        raise Error(msg("bad_milestone_phase", id=m.id, phase=m["phase"]))
+    _apply_phase(m, "defining", None, None)
+    m.save()
+    return m
+
+
+def start_build(root: Path, ident: str) -> list:
+    """Queue a defined milestone for construction; it starts at once if nothing is being built."""
+    m = load(root, ident)
+    docs = load_all(root)
+    if m.type != "milestone" or m["phase"] not in ("proposed", "defining"):
+        raise Error(msg("bad_milestone_phase", id=m.id, phase=m["phase"]))
+    missing = missing_specs(m, docs)
+    if missing or not is_ready(m, docs):
+        raise Error(msg("not_ready", id=m.id, missing=", ".join(missing) or "-"))
+    _apply_phase(m, "queued", None, None)
+    m.log(msg("log_queued"))
+    m.save()
+    return advance_milestones(root)
+
+
+def move_feature(root: Path, ident: str, target: str) -> tuple:
+    f = load(root, ident)
+    target = BACKLOG if target in ("", BACKLOG) else target.upper()
+    if target != BACKLOG:
+        dest = load(root, target)
+        if dest.type != "milestone":
+            raise Error(msg("not_found", id=target))
+        if dest["phase"] == "closed":
+            raise Error(msg("move_closed"))
+    tasks = [t for t in load_all(root) if t.type == "task" and t["parent"] == f.id]
+    if f["phase"] in ("validated", "accepted") or any(
+            t["phase"] in ("development", "in_review", "done") for t in tasks):
+        raise Error(msg("move_has_code", id=f.id))
+    old = f["milestone"] or BACKLOG
+    discarded = []
+    for t in tasks:  # pending tasks belong to the old release's technical design
+        if t["phase"] == "pending":
+            _apply_phase(t, "discarded", None, msg("log_moved", old=old, new=target))
+            t.save()
+            discarded.append(t.id)
+    f.meta["milestone"] = target
+    if f["phase"] == "building":
+        _apply_phase(f, "specified", None, None)
+    f.log(msg("log_moved", old=old, new=target))
+    if discarded:
+        f.log(msg("log_tasks_discarded", tasks=", ".join(discarded)))
+    f.save()
+    return old, target
+
+
+def reorder_milestone(root: Path, ident: str, direction: str) -> list:
+    ms = [m for m in milestones_sorted(load_all(root)) if m["phase"] != "closed"]
+    ids = [m.id for m in ms]
+    i = ids.index(ident.upper())
+    j = i - 1 if direction == "up" else i + 1
+    if 0 <= j < len(ms):
+        ms[i], ms[j] = ms[j], ms[i]
+    closed = len([m for m in load_all(root) if m.type == "milestone" and m["phase"] == "closed"])
+    for n, m in enumerate(ms, start=closed + 1):
+        if int(m["order"] or 0) != n:
+            m.meta["order"] = n
+            m.save()
+    return [m.id for m in ms]
+
+
+def remove_milestone(root: Path, ident: str) -> None:
+    m = load(root, ident)
+    used = [d for d in load_all(root) if d.type in ("feature", "task") and d["milestone"] == m.id]
+    if m.type != "milestone" or m["phase"] != "proposed" or used:
+        raise Error(msg("remove_not_empty"))
+    m.path.unlink()
+
+
+def cmd_move(a) -> None:
+    root = project_root()
+    old, new = move_feature(root, a.id, a.milestone)
+    print(f"{a.id.upper()}: {old} → {new}")
+
+
+def cmd_remove(a) -> None:
+    root = project_root()
+    remove_milestone(root, a.id)
+    print(f"{a.id.upper()} ✕")
+
+
+def cmd_start_definition(a) -> None:
+    root = project_root()
+    m = start_definition(root, a.id)
+    print(f"{m.id}: defining")
+
+
+def cmd_start_build(a) -> None:
+    root = project_root()
+    changes = start_build(root, a.id)
+    print("\n".join(changes) if changes else f"{a.id.upper()}: queued")
 
 
 # --------------------------------------------------------------------------- design
@@ -945,21 +1147,41 @@ def compute_next(root: Path):
                         or design["phase"] == "approved")
 
         if p["architecture"] == "done" and design_ready:
-            active = next((m for m in milestones if m["phase"] == "approved"), None)
-            if active is None:
-                proposed = next((m for m in milestones if m["phase"] == "proposed"), None)
-                if proposed and proposed.free:
-                    first = not any(m["phase"] == "closed" for m in milestones)
-                    action("orchestrator", proposed.id,
-                           "approve_milestone_first" if first else "approve_milestone")
-                elif not proposed:
-                    action("orchestrator", "project", "roadmap_review")
-            else:
-                _milestone_actions(root, active, features, tasks, deps_ok, action)
+            ordered = milestones_sorted(milestones)
+            started = [m for m in ordered if m["phase"] != "proposed"]
+            if not started:
+                first = next((m for m in ordered if m.free), None)
+                if first:
+                    action("orchestrator", first.id, "approve_milestone_first")
+            # Definition lane: every milestone being defined, in parallel.
+            for m in ordered:
+                if m["phase"] == "defining":
+                    _definition_actions(root, m, features, action)
+            # Construction lane: the one milestone being built.
+            building = next((m for m in ordered if is_building(m)), None)
+            if building:
+                _milestone_actions(root, building, features, tasks, deps_ok, action)
+            if started and not any(m["phase"] in ("proposed", "defining", "queued")
+                                   or is_building(m) for m in ordered):
+                action("orchestrator", "project", "roadmap_review")
 
     # hotfix: outside the milestone flow
     _task_actions([t for t in tasks if t["kind"] == "hotfix"], tasks, deps_ok, action)
     return human, in_progress, actions
+
+
+def _definition_actions(root, m, features, action) -> None:
+    """Functional definition (spec, mockup, approval); technical design waits for construction."""
+    for f in features:
+        if f["milestone"] != m.id or not f.free or f["phase"] != "defined":
+            continue
+        arts = artifacts(root, f)
+        if not arts["spec"].exists():
+            action("launch analyst", f.id, "specify")
+        elif f["needs_mockup"] == "yes" and not arts["mockup"].exists():
+            action("launch prototyper", f.id, "mockup")
+        else:
+            action("orchestrator", f.id, "approve_spec")
 
 
 def _milestone_actions(root, m, features, tasks, deps_ok, action) -> None:
@@ -1177,11 +1399,15 @@ def preview_dir(root: Path, key: str) -> Path | None:
 
 def state_json(root: Path) -> dict:
     art_base = root / ".factory" / "artifacts"
+    all_docs = load_all(root)
 
     def serialize(d: Doc) -> dict:
         arts = {k: str(v.relative_to(art_base)) for k, v in artifacts(root, d).items()
                 if v.exists()}
         data = {"meta": d.meta, "body": d.body, "artifacts": arts}
+        if d.type == "milestone":
+            data["ready"] = is_ready(d, all_docs)
+            data["missing"] = missing_specs(d, all_docs)
         if d.type == "feature" and "spec" in arts:
             text = (art_base / arts["spec"]).read_text(encoding="utf-8")
             data["criteria"] = len(set(re.findall(r"AC-F\d+-\d+", text)))
@@ -1229,7 +1455,7 @@ def apply_panel_action(root: Path, data: dict) -> str:
 
     if action == "approve":
         target = {"approve_spec": "specified", "approve_design": "approved",
-                  "approve_milestone": "approved"}.get(awaiting)
+                  "approve_milestone": "defining"}.get(awaiting)
         if not target:
             raise bad
         dec = decide(what_key)
@@ -1279,6 +1505,81 @@ def apply_panel_action(root: Path, data: dict) -> str:
         return msg("in_batch", id=d.id, features=", ".join(accepted) or "-", dec=dec)
     if action == "review_one":
         return msg("in_review_one", id=d.id)
+
+    # --- milestone and feature management (no "awaiting" needed)
+    if action == "start_definition":
+        start_definition(root, ident)
+        decide("w_start_definition")
+        return msg("in_start_definition", id=d.id)
+    if action == "start_build":
+        changes = start_build(root, ident)
+        decide("w_start_build")
+        return msg("in_start_build", id=d.id, result="; ".join(changes) or msg("in_build_queued"))
+    if action == "move":
+        old, new = move_feature(root, ident, str(data.get("target") or BACKLOG))
+        decide("w_move", f"{old} → {new}")
+        return msg("in_move", id=d.id, old=old, new=new)
+    if action == "new_milestone":
+        title = str(data.get("title") or "").strip()
+        if not title:
+            raise bad
+        orders = [int(m["order"] or 0) for m in load_all(root) if m.type == "milestone"]
+        new_id = next_id(root, "M")
+        meta = {k: "" for k in FIELDS["milestone"]}
+        meta.update({"id": new_id, "type": "milestone", "title": title, "phase": "proposed",
+                     "status": "queued", "goal": str(data.get("goal") or "").strip(), "planned": "no",
+                     "order": max(orders) + 1 if orders else 1, "created": now()})
+        _write_new(root / ".factory" / "state" / f"{new_id}-{slug(title)}.md", meta,
+                   _new_body(new_id, title, comment))
+        record_decision(root, msg("dec_title", what=msg("w_new_milestone"), id=new_id), new_id,
+                        msg("dec_from_panel"))
+        return msg("in_new_milestone", id=new_id, title=title)
+    if action == "edit_milestone":
+        if d.type != "milestone":
+            raise bad
+        for field in ("title", "goal"):
+            if field in data:
+                d.meta[field] = str(data[field]).strip()
+                d.log(f"{field} = {d.meta[field]}")
+        d.save()
+        return msg("in_edit_milestone", id=d.id)
+    if action == "reorder":
+        order = reorder_milestone(root, ident, str(data.get("direction") or "down"))
+        return msg("in_reorder", order=" → ".join(order))
+    if action == "remove_milestone":
+        title = d["title"]
+        remove_milestone(root, ident)
+        record_decision(root, msg("dec_title", what=msg("w_remove_milestone"), id=ident.upper()),
+                        ident, f"{msg('dec_from_panel')}\n\n{title}")
+        return msg("in_remove_milestone", id=ident.upper())
+    if action == "new_feature":
+        text = str(data.get("text") or comment).strip()
+        title = str(data.get("title") or "").strip() or text.split("\n")[0][:60]
+        target = str(data.get("target") or BACKLOG).upper()
+        if not text or not title:
+            raise bad
+        if target != BACKLOG and load(root, target)["phase"] == "closed":
+            raise Error(msg("move_closed"))
+        new_id = next_id(root, "F")
+        meta = {k: "" for k in FIELDS["feature"]}
+        meta.update({"id": new_id, "type": "feature", "title": title, "milestone": target,
+                     "phase": "defined", "status": "queued", "priority": "must", "version": 1,
+                     "depends_on": [], "created": now()})
+        _write_new(root / ".factory" / "state" / f"{new_id}-{slug(title)}.md", meta,
+                   _new_body(new_id, title, text))
+        record_decision(root, msg("dec_title", what=msg("w_new_feature"), id=new_id), new_id,
+                        f"{msg('dec_from_panel')}\n\n{text}")
+        where = msg("backlog") if target == BACKLOG else target
+        return msg("in_new_feature", id=new_id, milestone=where, text=text)
+    if action == "auto_build":
+        value = "yes" if str(data.get("value")) in ("yes", "true", "1") else "no"
+        pr = project(root)
+        pr.meta["auto_build"] = value
+        pr.log(f"auto_build = {value}")
+        pr.save()
+        changes = advance_milestones(root)
+        state = msg("on") if value == "yes" else msg("off")
+        return msg("in_auto_build", state=state) + (f" {'; '.join(changes)}" if changes else "")
     raise bad
 
 
@@ -1433,7 +1734,8 @@ def main(argv=None) -> int:
     s.add_argument("--title", required=True)
     s.add_argument("--text", help="description; '-' reads stdin")
     s.add_argument("--goal")
-    s.add_argument("--milestone")
+    s.add_argument("--order", type=int, help="milestone position (default: last)")
+    s.add_argument("--milestone", help="milestone ID, or '-' to park the feature for later")
     s.add_argument("--priority", choices=PRIORITIES)
     s.add_argument("--parent")
     s.add_argument("--kind", choices=KINDS)
@@ -1513,6 +1815,23 @@ def main(argv=None) -> int:
     s = sub.add_parser("export", help="export a branch to .factory/tmp/ to read or run it")
     s.add_argument("ref")
     s.set_defaults(f=cmd_export)
+
+    s = sub.add_parser("move", help="move a feature to another milestone ('-' = later)")
+    s.add_argument("id")
+    s.add_argument("--milestone", required=True)
+    s.set_defaults(f=cmd_move)
+
+    s = sub.add_parser("remove", help="delete a proposed, empty milestone")
+    s.add_argument("id")
+    s.set_defaults(f=cmd_remove)
+
+    s = sub.add_parser("start-definition", help="start the definition lane of a proposed milestone")
+    s.add_argument("id")
+    s.set_defaults(f=cmd_start_definition)
+
+    s = sub.add_parser("start-build", help="queue a defined milestone for construction")
+    s.add_argument("id")
+    s.set_defaults(f=cmd_start_build)
 
     s = sub.add_parser("design-kit", help="create .factory/artifacts/design/ from the kit template")
     s.set_defaults(f=cmd_design_kit)

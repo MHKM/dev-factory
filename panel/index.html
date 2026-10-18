@@ -190,6 +190,14 @@ pre.plain { white-space: pre-wrap; font: 13px/1.5 ui-monospace, Menlo, monospace
 .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 64px; background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 20; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .toast.show { opacity: 1; }
 .icon-button { border: 1px solid var(--border); background: var(--surface); border-radius: 99px; padding: 4px 10px; cursor: pointer; font-size: 13px; }
+.icon-button.on { border-color: var(--green); color: var(--green); background: var(--green-bg); font-weight: 600; }
+.ms-tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.ms-tools .button[disabled] { opacity: .45; cursor: not-allowed; }
+.form-card { display: grid; gap: 8px; margin-top: 10px; }
+.form-card input, .form-card select, .form-card textarea { font: inherit; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); color: var(--text); }
+.form-card textarea { min-height: 80px; resize: vertical; }
+.move-select { font: inherit; font-size: 12px; border: 1px solid var(--border); border-radius: 7px; padding: 3px 6px; background: var(--surface); color: var(--text); }
+.backlog .card { opacity: .9; }
 
 /* Orchestrator dock */
 body { padding-bottom: 56px; }
@@ -244,6 +252,7 @@ body.dock-open { padding-bottom: 330px; }
   </nav>
   <div class="spacer"></div>
   <span id="badge-slot"></span>
+  <button class="icon-button" id="auto-build" onclick="toggleAutoBuild()"></button>
   <button class="icon-button" id="sound" onclick="toggleSound()"></button>
   <span class="live" id="live"><i></i>…</span>
 </header>
@@ -302,6 +311,13 @@ const I18N = {
     hint_main: "Rama principal: lo aceptado (producción).",
     hint_task: "Rama de la tarea {id}: lo que se revisa en su PR. Se recarga sola con cada commit.",
     nothing_preview: "Todavía no hay nada que ver aquí: falta un index.html.",
+    start_definition: "Iniciar definición", start_build: "Comenzar construcción", not_ready: "Falta aprobar la especificación de {x}",
+    edit: "Editar", save: "Guardar", delete: "Borrar", up: "Subir", down: "Bajar", move_to: "Mover a…", backlog: "Más adelante",
+    backlog_hint: "Funcionalidades aparcadas, sin hito.", new_milestone: "+ Nuevo hito", new_feature: "+ Nueva funcionalidad",
+    title_ph: "Título", goal_ph: "Al terminar se puede…", feature_text_ph: "Describe lo que necesitas. El orquestador comprobará si encaja o es un cambio de algo ya hecho.",
+    feature_title_ph: "Título (opcional)", where: "Hito", auto_build: "Construcción automática",
+    auto_build_tip: "Activada: un hito pasa a construcción en cuanto su definición está aprobada, sin pedirte confirmación.",
+    lanes: "Definición en paralelo · construcción de uno en uno", create: "Crear", delete_confirm: "Pulsa otra vez para borrar",
   },
   en: {
     panel: "Control panel", product: "Product", construction: "Construction", connecting: "connecting…",
@@ -343,13 +359,21 @@ const I18N = {
     hint_main: "Main branch: what has been accepted (production).",
     hint_task: "Branch of task {id}: what its PR shows. Reloads by itself on every commit.",
     nothing_preview: "Nothing to see here yet: there is no index.html.",
+    start_definition: "Start definition", start_build: "Start construction", not_ready: "The spec of {x} still needs approval",
+    edit: "Edit", save: "Save", delete: "Delete", up: "Up", down: "Down", move_to: "Move to…", backlog: "Later",
+    backlog_hint: "Parked features, with no milestone.", new_milestone: "+ New milestone", new_feature: "+ New feature",
+    title_ph: "Title", goal_ph: "When done you can…", feature_text_ph: "Describe what you need. The orchestrator will check whether it fits or changes something already built.",
+    feature_title_ph: "Title (optional)", where: "Milestone", auto_build: "Automatic construction",
+    auto_build_tip: "On: a milestone starts construction as soon as its definition is approved, without asking you.",
+    lanes: "Definition in parallel · construction one at a time", create: "Create", delete_confirm: "Click again to delete",
   }
 };
 const LABELS = {
   es: {
-    feature_phase: { defined: ["En definición", "gray"], specified: ["Especificación aprobada", "blue"], building: ["En construcción", "amber"],
+    feature_phase: { defined: ["Por especificar", "gray"], specified: ["Especificación aprobada", "blue"], building: ["En construcción", "amber"],
       validated: ["Validada · falta tu OK", "violet"], accepted: ["Aceptada", "green"], postponed: ["Aplazada", "gray"], discarded: ["Descartada", "gray"] },
-    milestone_phase: { proposed: ["Propuesto", "gray"], approved: ["En marcha", "amber"], closed: ["Cerrado", "green"] },
+    milestone_phase: { proposed: ["Propuesto", "gray"], defining: ["En definición", "blue"], queued: ["En cola de construcción", "violet"],
+      building: ["En construcción", "amber"], approved: ["En construcción", "amber"], closed: ["Cerrado", "green"] },
     task_phase: { pending: ["Pendiente", "gray"], development: ["Desarrollo", "amber"], in_review: ["En revisión", "violet"], done: ["Hecha", "green"], discarded: ["Descartada", "gray"] },
     design_phase: { pending: ["Pendiente de aprobar", "gray"], approved: ["Aprobado", "green"] },
     status: { queued: ["En cola", "gray"], in_progress: ["Trabajando", "amber"], waiting_human: ["Te espera", "red"], blocked: ["Bloqueada", "red"] },
@@ -374,9 +398,10 @@ const LABELS = {
       interface: "Interfaz", language: "Idioma", max_attempts: "Intentos máximos", discovery: "Descubrimiento", architecture: "Arquitectura" },
   },
   en: {
-    feature_phase: { defined: ["Defined", "gray"], specified: ["Spec approved", "blue"], building: ["Building", "amber"],
+    feature_phase: { defined: ["To specify", "gray"], specified: ["Spec approved", "blue"], building: ["Building", "amber"],
       validated: ["Validated · needs your OK", "violet"], accepted: ["Accepted", "green"], postponed: ["Postponed", "gray"], discarded: ["Discarded", "gray"] },
-    milestone_phase: { proposed: ["Proposed", "gray"], approved: ["In progress", "amber"], closed: ["Closed", "green"] },
+    milestone_phase: { proposed: ["Proposed", "gray"], defining: ["Defining", "blue"], queued: ["Queued for construction", "violet"],
+      building: ["Building", "amber"], approved: ["Building", "amber"], closed: ["Closed", "green"] },
     task_phase: { pending: ["Pending", "gray"], development: ["Development", "amber"], in_review: ["In review", "violet"], done: ["Done", "green"], discarded: ["Discarded", "gray"] },
     design_phase: { pending: ["Awaiting approval", "gray"], approved: ["Approved", "green"] },
     status: { queued: ["Queued", "gray"], in_progress: ["Working", "amber"], waiting_human: ["Waiting for you", "red"], blocked: ["Blocked", "red"] },
@@ -477,6 +502,7 @@ function render() {
   if (focused) { const el = document.querySelector(`[data-draft="${CSS.escape(focused)}"]`); if (el) { el.focus(); el.setSelectionRange(caret, caret); } }
   renderDock();
   renderSound();
+  renderAutoBuild();
   checkAlert(pending.length);
   tick();
   if (side) openSide(side.id, side.tab, true);
@@ -517,24 +543,35 @@ function productView() {
     <div class="row">${artifactButtons(pr)}${artifactButtons(state.design)}<button class="button" onclick="openSide('project')">${esc(t("profile"))}</button></div>
   </div>`;
 
-  const milestones = itemsOf("milestone");
-  if (!milestones.length) h += `<h2>${esc(t("milestones"))}</h2><div class="empty">${esc(t("no_milestones"))}</div>`;
+  const milestones = sortedMilestones();
+  h += `<h2>${esc(t("milestones"))} <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">· ${esc(t("lanes"))}</span></h2>`;
+  if (!milestones.length) h += `<div class="empty">${esc(t("no_milestones"))}</div>`;
   for (const m of milestones) {
     const fs = itemsOf("feature").filter(f => f.meta.milestone === m.meta.id);
     const alive = fs.filter(f => !["postponed", "discarded"].includes(f.meta.phase));
     const accepted = alive.filter(f => f.meta.phase === "accepted").length;
     h += `<div class="milestone">
       <h2>${esc(m.meta.id)} · ${esc(t("milestone"))}</h2>
+      ${editingMilestone === m.meta.id ? milestoneForm(m) : `
       <div class="milestone-head"><h3>${esc(m.meta.title)}</h3>${chip(phaseLabel(m.meta))}
         ${m.meta.status === "waiting_human" ? chip([t("waiting_prefix") + m.meta.reason, "red"]) : ""}
-        <span class="spacer"></span>${prButton(m)}${artifactButtons(m)}
+        <span class="spacer"></span>${milestoneTools(m)}${prButton(m)}${artifactButtons(m)}
         <button class="button" onclick="openSide('${m.meta.id}')">${esc(t("card"))}</button></div>
-      <div class="muted">${esc(t("goal"))} ${esc(m.meta.goal || "—")}</div>
+      <div class="muted">${esc(t("goal"))} ${esc(m.meta.goal || "—")}</div>`}
       <div class="row" style="margin-top:8px"><div class="bar" style="flex:1"><div style="width:${alive.length ? accepted / alive.length * 100 : 0}%"></div></div>
         <span class="muted">${esc(t("accepted_count", { a: accepted, b: alive.length }))}</span></div>
       <div class="grid">${fs.map(featureCard).join("") || `<div class="empty">${esc(t("no_features"))}</div>`}</div>
     </div>`;
   }
+  const backlog = itemsOf("feature").filter(f => f.meta.milestone === "-");
+  if (backlog.length) {
+    h += `<div class="milestone backlog"><h2>${esc(t("backlog"))}</h2><div class="muted">${esc(t("backlog_hint"))}</div>
+      <div class="grid">${backlog.map(featureCard).join("")}</div></div>`;
+  }
+  h += `<div class="row" style="margin-top:18px">
+      <button class="button" onclick="toggleForm('new_milestone')">${esc(t("new_milestone"))}</button>
+      <button class="button" onclick="toggleForm('new_feature')">${esc(t("new_feature"))}</button></div>
+    ${openForm === "new_milestone" ? newMilestoneForm() : ""}${openForm === "new_feature" ? newFeatureForm() : ""}`;
 
   h += `<h2>${esc(t("decisions"))}</h2>`;
   h += state.decisions.length ? `<div class="card" style="padding:0"><table class="table">
@@ -560,8 +597,120 @@ function featureCard(f) {
     ${waiting ? `<div>${chip([t("waiting_prefix") + (m.reason || ""), "red"])}</div>` : ""}
     <ul class="oks">${oks.map(([label, yes, now]) => `<li class="${yes ? "yes" : ""} ${now ? "now" : ""}"><span class="tick">${yes ? "✓" : now ? "!" : ""}</span>${esc(label)}</li>`).join("")}</ul>
     <div class="row"><span class="muted">${esc(f.criteria != null ? t("criteria", { n: f.criteria }) : t("not_specified"))}</span></div>
-    <div class="row" style="margin-top:10px">${artifactButtons(f)}</div>
+    <div class="row" style="margin-top:10px">${artifactButtons(f)}${moveSelect(f)}</div>
   </div>`;
+}
+
+/* ------------------------------------------------------------------ Milestone management */
+let editingMilestone = null, openForm = null, armedDelete = null;
+const val = key => drafts[key] ?? "";
+const draftInput = (key, ph, initial = "") => {
+  if (drafts[key] === undefined) drafts[key] = initial;
+  return `<input data-draft="${esc(key)}" placeholder="${esc(ph)}" value="${esc(drafts[key])}" oninput="drafts[this.dataset.draft]=this.value">`;
+};
+const openMilestones = () => sortedMilestones().filter(m => m.meta.phase !== "closed");
+
+function sortedMilestones() {
+  return itemsOf("milestone").sort((a, b) => ((+a.meta.order || 999) - (+b.meta.order || 999)) || a.meta.id.localeCompare(b.meta.id));
+}
+
+function milestoneTools(m) {
+  const ph = m.meta.phase, id = esc(m.meta.id), ms = byId(m.meta.id);
+  const tools = [];
+  if (ph === "proposed") tools.push(`<button class="button primary" onclick="act('${id}', 'start_definition', this.textContent)">${esc(t("start_definition"))}</button>`);
+  if (ph === "defining" || ph === "proposed") {
+    const ready = ms.ready && ph === "defining";
+    const tip = ms.missing && ms.missing.length ? t("not_ready", { x: ms.missing.join(", ") }) : "";
+    tools.push(`<button class="button ${ready ? "primary" : ""}" ${ready ? "" : "disabled"} title="${esc(tip)}"
+      onclick="act('${id}', 'start_build', this.textContent)">${esc(t("start_build"))}</button>`);
+  }
+  if (["proposed", "defining", "queued"].includes(ph)) {
+    tools.push(`<button class="button" title="${esc(t("up"))}" onclick="act('${id}', 'reorder', '${esc(t("up"))}', '', '', { direction: 'up' })">▲</button>`);
+    tools.push(`<button class="button" title="${esc(t("down"))}" onclick="act('${id}', 'reorder', '${esc(t("down"))}', '', '', { direction: 'down' })">▼</button>`);
+  }
+  if (ph !== "closed") tools.push(`<button class="button" onclick="editingMilestone='${id}'; render()">${esc(t("edit"))}</button>`);
+  const empty = !state.items.some(x => (x.meta.type === "feature" || x.meta.type === "task") && x.meta.milestone === m.meta.id);
+  if (ph === "proposed" && empty) {
+    tools.push(armedDelete === m.meta.id
+      ? `<button class="button danger" onclick="armedDelete=null; act('${id}', 'remove_milestone', this.textContent)">${esc(t("delete_confirm"))}</button>`
+      : `<button class="button danger" onclick="armedDelete='${id}'; render()">${esc(t("delete"))}</button>`);
+  }
+  return `<span class="ms-tools">${tools.join("")}</span>`;
+}
+
+function milestoneForm(m) {
+  const id = m.meta.id;
+  return `<div class="card form-card">
+    ${draftInput(`ms-title:${id}`, t("title_ph"), m.meta.title)}
+    ${draftInput(`ms-goal:${id}`, t("goal_ph"), m.meta.goal || "")}
+    <div class="row"><button class="button primary" onclick="saveMilestone('${esc(id)}')">${esc(t("save"))}</button>
+      <button class="button" onclick="editingMilestone=null; render()">${esc(t("cancel"))}</button></div></div>`;
+}
+
+function saveMilestone(id) {
+  editingMilestone = null;
+  act(id, "edit_milestone", t("edit"), "", "", { title: val(`ms-title:${id}`), goal: val(`ms-goal:${id}`) });
+  delete drafts[`ms-title:${id}`]; delete drafts[`ms-goal:${id}`];
+}
+
+function toggleForm(name) { openForm = openForm === name ? null : name; render(); }
+
+function newMilestoneForm() {
+  return `<div class="card form-card">
+    ${draftInput("nm-title", t("title_ph"))}
+    ${draftInput("nm-goal", t("goal_ph"))}
+    <div class="row"><button class="button primary" onclick="createMilestone()">${esc(t("create"))}</button>
+      <button class="button" onclick="toggleForm(null)">${esc(t("cancel"))}</button></div></div>`;
+}
+
+function createMilestone() {
+  if (!val("nm-title").trim()) return;
+  act("project", "new_milestone", t("new_milestone"), "", "", { title: val("nm-title"), goal: val("nm-goal") });
+  drafts["nm-title"] = ""; drafts["nm-goal"] = ""; openForm = null;
+}
+
+function milestoneOptions(selected) {
+  return openMilestones().map(m => `<option value="${esc(m.meta.id)}" ${m.meta.id === selected ? "selected" : ""}>${esc(m.meta.id)} · ${esc(m.meta.title)}</option>`).join("")
+    + `<option value="-" ${selected === "-" ? "selected" : ""}>${esc(t("backlog"))}</option>`;
+}
+
+function newFeatureForm() {
+  if (drafts["nf-target"] === undefined) {
+    const def = openMilestones().find(m => m.meta.phase === "defining") || openMilestones()[0];
+    drafts["nf-target"] = def ? def.meta.id : "-";
+  }
+  return `<div class="card form-card">
+    ${draftInput("nf-title", t("feature_title_ph"))}
+    <textarea data-draft="nf-text" placeholder="${esc(t("feature_text_ph"))}" oninput="drafts[this.dataset.draft]=this.value">${esc(val("nf-text"))}</textarea>
+    <label class="row small muted">${esc(t("where"))}
+      <select class="move-select" onchange="drafts['nf-target']=this.value">${milestoneOptions(drafts["nf-target"])}</select></label>
+    <div class="row"><button class="button primary" onclick="createFeature()">${esc(t("send"))}</button>
+      <button class="button" onclick="toggleForm(null)">${esc(t("cancel"))}</button></div></div>`;
+}
+
+function createFeature() {
+  if (!val("nf-text").trim()) return;
+  act("project", "new_feature", t("new_feature"), "", "", { title: val("nf-title"), text: val("nf-text"), target: drafts["nf-target"] });
+  drafts["nf-title"] = ""; drafts["nf-text"] = ""; openForm = null;
+}
+
+function moveSelect(f) {
+  if (["validated", "accepted", "postponed", "discarded"].includes(f.meta.phase)) return "";
+  return `<select class="move-select" title="${esc(t("move_to"))}" onclick="event.stopPropagation()"
+    onchange="if (this.value !== '${esc(f.meta.milestone)}') act('${esc(f.meta.id)}', 'move', '${esc(t("move_to"))}', '', '', { target: this.value })">
+    <option disabled>${esc(t("move_to"))}</option>${milestoneOptions(f.meta.milestone)}</select>`;
+}
+
+function toggleAutoBuild() {
+  const on = state.project.meta.auto_build === "yes";
+  act("project", "auto_build", t("auto_build"), "", "", { value: on ? "no" : "yes" });
+}
+function renderAutoBuild() {
+  const on = state.project.meta.auto_build === "yes";
+  const el = $("#auto-build");
+  el.textContent = `${on ? "⚡" : "○"} ${t("auto_build")}`;
+  el.title = t("auto_build_tip");
+  el.classList.toggle("on", on);
 }
 
 /* ------------------------------------------------------------------ Construction */
@@ -590,8 +739,8 @@ function constructionView(pending) {
         <span class="muted small since" data-since="${esc(r.ended)}" data-fmt="ago"></span></li>`).join("")}</ul>`
     : `<span class="muted">${esc(t("nothing_recent"))}</span>`}</div></div></div>`;
 
-  const milestones = itemsOf("milestone");
-  const active = milestones.find(x => x.meta.phase === "approved") || milestones[milestones.length - 1];
+  const milestones = sortedMilestones();
+  const active = milestones.find(x => ["building", "approved"].includes(x.meta.phase)) || milestones.find(x => x.meta.phase === "defining") || milestones[milestones.length - 1];
   if (!selectedMilestone || !byId(selectedMilestone)) selectedMilestone = active ? active.meta.id : null;
   const hotfixes = itemsOf("task").filter(x => x.meta.kind === "hotfix");
   if (!selectedMilestone && !hotfixes.length) return h + `<h2>${esc(t("tasks"))}</h2><div class="empty">${esc(t("no_tasks_yet"))}</div>`;
@@ -857,9 +1006,9 @@ async function post(path, body) {
   if (!r.ok) throw new Error(await r.text());
 }
 
-async function act(id, action, label, comment = "", choice = "") {
+async function act(id, action, label, comment = "", choice = "", extra = {}) {
   try {
-    await post("/api/action", { id, action, label, comment, choice });
+    await post("/api/action", { id, action, label, comment, choice, ...extra });
     openComment[id] = null;
     toast(t("sent"));
     load();

@@ -44,6 +44,6 @@ Observaciones durante la primera ejecución real de la plataforma (2026-10-14). 
 | Corrección 5 · Retomar la sesión | 3 | Pendiente de probar. |
 | Panel: decidir y hablar con el orquestador | 8, 10, 12, 19 | ✅ Botones de decisión que aplican el cambio, monitor que despierta al orquestador, diálogo inferior y aviso sonoro. Probado en real con `factory-panel-test`. |
 | Panel: vista previa | 11, 18, 21, 22 | ✅ Pestaña «Vista previa»: en directo, release, producción y ramas de tarea; móvil, tableta y escritorio; recarga automática. |
-| Siguiente bloque | 25, 26, 27 | Pendiente: añadir funcionalidades desde Producto, gestionar hitos y carriles de definición y construcción. |
+| Hitos y carriles | 25, 26, 27 | ✅ Nueva funcionalidad desde Producto, gestión de hitos (crear, editar, ordenar, borrar, mover funcionalidades, «más adelante»), carriles de definición y construcción con cola y construcción automática. |
 | Claude Design | 28 | Pendiente: experimento con Boadilla Motor. |
 | Mejoras | resto | Pendientes (ver la clasificación acordada). |

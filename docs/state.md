@@ -75,9 +75,9 @@ updated: 2026-10-12 19:05
 
 | Tipo | Campos propios |
 |---|---|
-| project | `name`, `description`, `main_branch`, `remote` (`github`/`none`), `interface` (`web`/`none`/`mixed`), `language` (idioma de todo lo que lee el humano: `es` por defecto o `en`), `max_attempts`, `discovery` (`pending`/`done`), `architecture` (`pending`/`done`) |
+| project | `name`, `description`, `main_branch`, `remote` (`github`/`none`), `interface` (`web`/`none`/`mixed`), `language` (idioma de todo lo que lee el humano: `es` por defecto o `en`), `max_attempts`, `discovery` (`pending`/`done`), `architecture` (`pending`/`done`), `auto_build` (`yes`/`no`), `preview_root`, `preview_url` |
 | design | `level` (`full`/`guidelines`/`none`, vacío = sin decidir) |
-| milestone | `goal`, `branch` (release), `planned` (`yes`/`no`), `closing` (`requested`/`merged`), `pr` |
+| milestone | `order` (posición), `goal`, `branch` (release), `planned` (`yes`/`no`), `closing` (`requested`/`merged`), `pr` |
 | feature | `milestone`, `priority` (`must`/`should`/`later`), `version`, `depends_on`, `needs_mockup` (`yes`/`no`), `validation` (`ko`/`rejected`/vacío) |
 | task | `kind` (`technical`/`cross_cutting`/`fix`/`hotfix`), `parent`, `milestone`, `package`, `agent`, `attempts`, `depends_on`, `branch`, `pr`, `review` (`ok`/`ko`) |
 
@@ -87,7 +87,7 @@ Todos tienen además `id`, `type`, `title`, `phase`, `status`, `reason`, `create
 
 | Tipo | Fases (`phase`) | En el modelo |
 |---|---|---|
-| milestone | `proposed` → `approved` → `closed` | Propuesto → Aprobado → Cerrado |
+| milestone | `proposed` → `defining` → `queued` → `building` → `closed` (`approved` = `building` en proyectos antiguos) | Propuesto → En definición → En cola → En construcción → Cerrado |
 | feature | `defined` → `specified` → `building` → `validated` → `accepted` · laterales: `postponed`, `discarded` | Definida → Especificada → En construcción → Validada → Aceptada · Aplazada, Descartada |
 | task | `pending` → `development` → `in_review` → `done` · lateral: `discarded` | Pendiente → Desarrollo → En revisión → Hecha · Descartada |
 | design | `pending` → `approved` | Pendiente de aprobar → Aprobado |
@@ -116,9 +116,13 @@ IDs: `M01` (hito), `F001` (funcionalidad), `T001` (tarea), `D001` (decisión), `
 | `factory decision --title T [--ref ID] --text -` | Registra una decisión e imprime su ID (`D###`) |
 | `factory resolve ID --decision D###` | Mueve las preguntas a «resueltas» y vuelve a `queued` |
 | `factory attempt ID [--reason M]` | Suma un intento y bloquea al llegar a `max_attempts` |
+| `factory start-definition M##` | Inicia el carril de definición de un hito propuesto |
+| `factory start-build M##` | Pone en cola de construcción un hito con todas sus especificaciones aprobadas; si no hay otro construyéndose, arranca ya y crea su release |
+| `factory move F### --milestone M##\|-` | Mueve una funcionalidad a otro hito (`-` = «más adelante»). Se niega si ya tiene código en construcción o integrado; descarta sus tareas pendientes |
+| `factory remove M##` | Borra un hito propuesto y vacío |
 | `factory open-release M##` | Crea `release/M##-…` desde la rama principal (y la sube si hay GitHub) |
 | `factory export REF` | Exporta una rama a `.factory/tmp/<ref>/` para leerla o probarla sin cambiar de rama |
-| `factory sync` | Detecta PRs o ramas fusionadas: tareas a `done` y hitos a `closed` |
+| `factory sync` | Detecta PRs o ramas fusionadas (tareas a `done`, hitos a `closed`) y avanza los carriles: con `auto_build`, los hitos listos pasan a la cola; si no hay ninguno construyéndose, arranca el primero de la cola y crea su release desde la rama principal |
 | `factory design-kit` | Crea `.factory/artifacts/design/` desde la plantilla del kit (sin pisar lo existente; la galería se refresca siempre) y genera `tokens.css` |
 | `factory tokens [--src tokens.json] [--out tokens.css]` | Genera variables CSS (con modo oscuro) desde un `tokens.json` en formato W3C Design Tokens. Sin argumentos usa el del kit; con `--src` sirve para el del repositorio |
 | `factory say --text T` | El orquestador escribe un mensaje en el diálogo del panel |
@@ -137,12 +141,13 @@ Calcula qué hacer a partir del estado. El orquestador lo ejecuta en cada vuelta
 | Proyecto con interfaz (`web`/`mixed`) y `design.level` sin decidir | orchestrator | `choose_design` |
 | `design.level` `full`/`guidelines` y sin kit | prototyper | `design_system` |
 | Kit creado y `design` no `approved` | orchestrator | `approve_design` |
-| Ningún hito aprobado y hay uno propuesto | orchestrator | `approve_milestone_first` (primera vez, con visión, roadmap y arquitectura) o `approve_milestone` |
-| Hito aprobado sin `branch` | orchestrator | `open_release` |
-| Hito aprobado sin `planned=yes` | architect | `milestone` |
+| Ningún hito empezado | orchestrator | `approve_milestone_first` (con visión, roadmap y arquitectura; aprobar = iniciar su definición) |
+| **Carril de definición** (cada hito en `defining`, en paralelo): | | |
+| Hito en construcción sin `planned=yes` | architect | `milestone` |
 | Feature `defined` sin `spec.md` | analyst | `specify` |
 | Feature `defined` con spec, `needs_mockup=yes` y sin maqueta | prototyper | `mockup` |
 | Feature `defined` con todo listo | orchestrator | `approve_spec` |
+| **Carril de construcción** (el único hito en `building`): | | |
 | Feature `specified` | architect | `feature` |
 | Feature `building` con `validation` ko/rejected y sin tareas abiertas | architect | `fix` |
 | Feature `building` con todas sus tareas en `done` | validator | `feature_validation` |
@@ -167,4 +172,4 @@ La escribe el hook `hooks/activity.py` sin intervención de los agentes:
 
 `factory next` y el panel la leen. Un agente sin actividad durante más de 5 minutos se marca como posiblemente atascado.
 
-Un hito activo a la vez (una release). Las dependencias se cumplen cuando el elemento está `done`, `validated` o `accepted`.
+Definición en paralelo para todos los hitos en `defining`; construcción de un hito a la vez (una release). Las funcionalidades con hito `-` («más adelante») no generan acciones. Las dependencias se cumplen cuando el elemento está `done`, `validated` o `accepted`.

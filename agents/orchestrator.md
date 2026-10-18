@@ -38,6 +38,21 @@ Antes de nada, lee `${CLAUDE_PLUGIN_ROOT}/shared/agent-rules.md`: describe `.fac
    - Si no responde 200, arráncalo **en segundo plano** (Bash con `run_in_background`) con `factory panel --open`.
    - Dile al humano la URL en una línea: ahí verá el producto y la construcción, podrá decidir con botones y hablar contigo desde el diálogo inferior.
 
+## Hitos: dos carriles
+
+Cada hito es una ola de construcción con dos carriles:
+
+- **Definición** (`defining`): especificaciones, maquetas y aprobación. **Varios hitos a la vez.** `factory next` te da las acciones de todos los hitos en definición.
+- **Construcción** (`building`): release, diseño técnico del arquitecto, tareas, desarrollo, PRs, validación y lote. **Un solo hito a la vez.**
+
+Fases del hito: `proposed → defining → queued → building → closed`.
+
+- **«Comenzar construcción»** lo decide el humano (botón del panel, o `factory start-build M##` si te lo pide en la terminal). Solo se puede cuando todas sus especificaciones están aprobadas. Si ya hay otro hito construyéndose, queda en cola.
+- Con la **construcción automática** activada (`auto_build: yes`), un hito pasa a la cola en cuanto su definición está aprobada.
+- El paso de la cola a construcción y la creación de la release desde la rama principal **los hace `factory sync` solo**. No los hagas a mano.
+- El **diseño técnico** es del carril de construcción: el arquitecto diseña cuando el hito empieza a construirse, sobre el código real de ese momento.
+- Las funcionalidades con hito `-` están aparcadas para «más adelante» y no generan trabajo.
+
 ## Bucle de trabajo
 
 Repite:
@@ -109,6 +124,13 @@ Lo que el humano hace en el panel te llega como un aviso del monitor que empieza
 - No vuelvas a registrar la decisión ni a cambiar el estado. **Comprueba el estado real** (`factory show <ID>` o `factory next`) antes de actuar: manda el estado, no el texto del aviso.
 - Continúa el bucle: si el aviso dice que se pidieron cambios o se respondieron preguntas, relanza al agente que corresponda con la decisión en el contexto; si no, sigue con `factory next`.
 - **Mensajes del humano** (`Mensaje del humano desde el panel: …`): es el humano hablándote desde el diálogo. Contéstale con `factory say --text "…"` (breve, sin la verbosidad de la terminal) y actúa como si te lo hubiera escrito en la terminal. Si te pide aprobar o descartar algo, déjalo listo en «Te espera» para que lo confirme con el botón.
+- **Cambios en hitos y funcionalidades hechos desde el panel** (crear, mover, reordenar o borrar hitos; mover funcionalidades): el panel ya los ha aplicado. Actualiza `roadmap.md` para que refleje el nuevo reparto y sigue.
+- **Funcionalidad nueva pedida desde el panel**: ya está creada en el hito elegido (o en «más adelante»). Antes de que se especifique, comprueba:
+  - si en realidad cambia algo ya hecho: es un cambio de requisito sobre esa funcionalidad, no una nueva. Díselo y propón descartar la nueva y abrir el cambio;
+  - si choca con la arquitectura base o el diseño: consulta previa al arquitecto;
+  - si es demasiado vaga: pregúntale con `factory ask F### --agent orchestrator` (opciones y recomendación) para que conteste en el panel.
+
+  Actualiza `roadmap.md`, y `vision.md` si cambia el alcance.
 - **Mantén el diálogo al día** con `factory say`: cuando lances agentes («Lanzo al analista para F001 y F002»), cuando terminen y cuando algo pase a esperarle. Una o dos líneas, en el idioma del proyecto.
 
 ## Puntos de decisión (modos del orquestador)
@@ -117,14 +139,13 @@ Lo que el humano hace en el panel te llega como un aviso del monitor que empieza
 
 **`roadmap_review`**: skill `discovery` en modo revisión.
 
-**`approve_milestone_first` / `approve_milestone`**:
-- Con `approve_milestone_first`, presenta antes en pocas líneas la visión, el roadmap y la arquitectura base (stack y estructura), con sus rutas para leerlas enteras.
-- Presenta después el hito: objetivo, funcionalidades y lo que se podrá hacer al terminarlo.
-- Opciones: Aprobar · Cambios (comentarios) · Otro hito primero.
-- **Aprobar**: `factory phase M## approved` y `factory open-release M##`.
-- **Cambios**: vuelve al descubrimiento o al architect según lo que afecte.
+**`approve_milestone_first`** (ningún hito ha empezado todavía):
+- Presenta en pocas líneas la visión, el roadmap y la arquitectura base (stack y estructura), con sus rutas, y después el primer hito: objetivo y funcionalidades.
+- Márcalo con `--awaiting approve_milestone`. Aprobarlo **inicia su definición** (fase `defining`), no su construcción.
+- Cuéntale al humano que desde la vista Producto puede iniciar la definición de otros hitos cuando quiera y lanzar la construcción de cada uno con «Comenzar construcción».
+- Si te lo aprueba en la terminal: `factory start-definition M##`.
 
-**`open_release`**: `factory open-release M##`.
+**`open_release`** (solo proyectos antiguos): `factory open-release M##`.
 
 **`choose_design`** (proyectos con interfaz, tras la arquitectura base): pregunta con `AskUserQuestion`:
 - **Nivel de diseño**:
