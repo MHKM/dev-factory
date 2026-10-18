@@ -8,22 +8,18 @@
 
 ## Arrancar un proyecto
 
-Cada construcción va en **su propia carpeta**, fuera de este repositorio:
+Cada construcción va en **su propia carpeta**, fuera de este repositorio. Se arranca con el lanzador `factory-start`, que está en la raíz de este repo:
 
 ```bash
 mkdir ~/Documents/projects/web-taller && cd ~/Documents/projects/web-taller
-claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator
+~/Documents/projects/dev-factory/factory-start
 ```
 
-Para no escribirlo cada vez:
+El orquestador habla primero: en un proyecto nuevo te pregunta qué quieres construir; en uno existente, resume el estado y abre el panel. Para no escribir la ruta cada vez, enlázalo en una carpeta de tu `PATH` (por ejemplo `ln -s ~/Documents/projects/dev-factory/factory-start /opt/homebrew/bin/factory-start`) o crea un alias.
 
-```bash
-alias factory-start='claude --plugin-dir ~/Documents/projects/dev-factory --agent factory:orchestrator'
-```
+Por qué un lanzador: los agentes de un plugin ignoran el mensaje inicial automático (`initialPrompt`) que tendría el orquestador, así que `factory-start` abre `claude` con el plugin, el agente orquestador y `/factory:start` como primer mensaje. Admite opciones de `claude` delante (por ejemplo `factory-start --model sonnet`). Dentro de una sesión, `/factory:start` vuelve a mostrar el resumen del estado.
 
-`--plugin-dir` carga el plugin desde este repositorio tal como esté en disco, así que cualquier cambio en agentes, plantillas o en el comando se aplica en la siguiente sesión. Alternativa estable: instalarlo desde el marketplace local (`/plugin marketplace add ~/Documents/projects/dev-factory` y después instalar `factory`) y arrancar solo con `claude --agent factory:orchestrator`.
-
-Tu primer mensaje arranca la sesión: en un proyecto nuevo, cuéntale qué quieres construir; para retomar, cualquier saludo basta y te resume el estado.
+`factory-start` carga el plugin desde este repositorio tal como esté en disco, así que cualquier cambio en agentes, plantillas o en el comando se aplica en la siguiente sesión.
 
 Para retomar un proyecto, se arranca igual en su carpeta: el orquestador lee `.factory/`, sincroniza y resume dónde estáis.
 

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Launch the factory orchestrator in the current folder; it speaks first.
+# Plugin agents ignore `initialPrompt`, so the first message is passed here.
+set -euo pipefail
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  TARGET="$(readlink "$SOURCE")"
+  [[ "$TARGET" = /* ]] && SOURCE="$TARGET" || SOURCE="$(dirname "$SOURCE")/$TARGET"
+done
+PLUGIN_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
+exec claude --plugin-dir "$PLUGIN_DIR" --agent factory:orchestrator "$@" "/factory:start"
